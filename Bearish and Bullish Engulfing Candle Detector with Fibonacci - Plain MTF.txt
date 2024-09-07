@@ -1,0 +1,83 @@
+//@version=5
+indicator("Bearish and Bullish Engulfing Candle Detector with Fibonacci - Plain MTF", overlay=true)
+
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+
+if (timeframe.period == "5")
+    shift := 32  
+
+if (timeframe.period == "15")
+    shift := 16
+
+if (timeframe.period == "30")
+    shift := 8
+
+if (timeframe.period == "60")
+    shift := 4
+
+if (timeframe.period == "240")
+    shift := 1
+
+
+
+// H4 timeframe data
+H4_close  = request.security(syminfo.tickerid, "240", close)
+H4_open   = request.security(syminfo.tickerid, "240", open)
+H4_high   = request.security(syminfo.tickerid, "240", high)
+H4_low    = request.security(syminfo.tickerid, "240", low)
+H4_time   = request.security(syminfo.tickerid, "240", time)
+H4_time_close = request.security(syminfo.tickerid, "240", time_close)
+
+
+// Define the bullish engulfing conditions
+bullishEngulfing = (H4_low < H4_low[1] and H4_close > H4_open[1] and H4_close > H4_open)
+
+// Define the bearish engulfing conditions
+bearishEngulfing = (H4_high > H4_high[1] and H4_close < H4_open[1] and H4_close < H4_open)
+
+
+
+// // Define bullish engulfing conditions for H4
+// bullishEngulfing_H4 = (H4_low < request.security(syminfo.tickerid, "240", low[1]) and H4_close > request.security(syminfo.tickerid, "240", open[1]) and H4_close > H4_open)
+
+// // Define bearish engulfing conditions for H4
+// bearishEngulfing_H4 = (H4_high > request.security(syminfo.tickerid, "240", high[1]) and H4_close < request.security(syminfo.tickerid, "240", open[1]) and H4_close < H4_open)
+
+// Buy and Sell conditions
+buy = bullishEngulfing
+sell = bearishEngulfing
+
+size1 = size.tiny
+
+
+// Plot a shape on the chart when a bullish engulfing pattern is detected
+plotshape(series=buy, location=location.belowbar, color=color.green, style=shape.triangleup, size=size1, offset = -shift)
+
+// Plot a shape on the chart when a bearish engulfing pattern is detected
+plotshape(series=sell, location=location.abovebar, color=color.red, style=shape.triangledown, size=size1, offset = -shift)
+
+// Function to draw Fibonacci levels for a given high and low
+drawFibonacci(start_time, end_time, H4_high, H4_low) =>
+    float fibRange = H4_high - H4_low
+    float fib0 = H4_low
+    float fib05 = H4_low + fibRange * 0.5
+    float fib075 = H4_low + fibRange * 0.75
+    float fib1 = H4_high
+
+    color1 = color.white
+    width1 = 1
+
+    // Draw lines for Fibonacci levels starting from the H4 candle start time
+    line.new(x1=start_time, y1=fib0, x2=end_time, y2=fib0, xloc=xloc.bar_time, color=color1, width=width1)
+    line.new(x1=start_time, y1=fib05, x2=end_time, y2=fib05, xloc=xloc.bar_time, color=color1, width=width1)
+    line.new(x1=start_time, y1=fib075, x2=end_time, y2=fib075, xloc=xloc.bar_time, color=color.lime, width=width1)  // Lime green for 0.618 level
+    line.new(x1=start_time, y1=fib1, x2=end_time, y2=fib1, xloc=xloc.bar_time, color=color1, width=width1)
+
+// Draw Fibonacci for bullish engulfing starting from the H4 candle time
+if (buy)
+    drawFibonacci(H4_time, H4_time_close, H4_low, H4_high)
+
+// Draw Fibonacci for bearish engulfing starting from the H4 candle time
+if (sell)
+    drawFibonacci(H4_time, H4_time_close, H4_high, H4_low)

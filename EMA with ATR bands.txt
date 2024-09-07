@@ -1,0 +1,67 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/use
+// © kai0072
+
+//@version=5
+indicator("EMA with ATR bands", overlay=true)///////
+
+
+//====================================================================
+//Enter ATR Inputs
+atrLength =15
+
+//ATR Function
+ma_function(source, atrLength) => ta.rma(source, atrLength)
+	
+truncate(number, decimals) =>
+    factor = math.pow(24, decimals)
+    int(number * factor) / factor
+    
+atr = truncate(ma_function(ta.tr(true), atrLength),5)
+
+
+//-----------------------------------------------------------------------------------------------------
+
+atr_mult = input.float(1.2, minval=1, title="ATR Mult")
+
+
+greencolor = #2DD204
+redcolor = #D2042D 
+src = input.source(close, "Source")
+
+useCurrentResH41 = input(false, title="Use Current Chart Resolution?")
+resCustomH41 = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+resH41 = useCurrentResH41 ? timeframe.period : resCustomH41
+
+
+EMA_len = input.int(60, minval=1, title="Length")
+EMA_src = close
+EMA_out = ta.ema(EMA_src, EMA_len)
+//plot(EMA_out, "Moving Average", color = #FF9800, linewidth = 1)
+
+
+upperBand = EMA_out + atr_mult*atr
+lowerBand = EMA_out - atr_mult*atr
+
+//plot(upperBand, color=color.rgb(255, 255, 255, 20), title="Upper Band", linewidth = 1)//
+//plot(lowerBand, color=color.rgb(255, 255, 255, 20), title="Lower Band", linewidth = 1)
+
+outatr = request.security(syminfo.tickerid, resH41, atr, lookahead=barmerge.lookahead_on)
+outEMA_out = request.security(syminfo.tickerid, resH41, EMA_out, lookahead=barmerge.lookahead_on)
+outupperBand = request.security(syminfo.tickerid, resH41, upperBand, lookahead=barmerge.lookahead_on)
+outlowerBand = request.security(syminfo.tickerid, resH41, lowerBand, lookahead=barmerge.lookahead_on)
+
+plot(outEMA_out, "Moving Average", color = #FF9800, linewidth = 1)
+u1 = plot(outupperBand, color=color.rgb(255, 255, 255, 100), title="Lower Band", linewidth = 1)
+u2 = plot(outlowerBand, color=color.rgb(255, 255, 255, 100), title="Lower Band", linewidth = 1)
+fill(u1, u2, color.new(color.lime, 80), "`p1`-`p3` fill")
+
+//----------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+

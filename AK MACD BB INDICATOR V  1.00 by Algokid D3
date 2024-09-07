@@ -1,0 +1,111 @@
+//@version=5
+
+//AK MACD BB 
+//created by Algokid , February 24,2015
+
+
+indicator("AK MACD BB v 1.00 D3")//
+
+GetPipSize() =>
+    syminfo.mintick * (syminfo.prefix == "forex" ? 10 : 1)///////
+
+
+//MACD
+fastLength = input.int(20, minval=1) 
+slowLength=input.int(576,minval=1)
+length=input.int(12,minval=1)
+dev = input.int(1, minval=1, title="Deviations")
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+
+if (timeframe.period == "5")
+    fastLength := 20
+    slowLength := 576
+    length := 12
+    shift := 1  
+
+if (timeframe.period == "10")
+    fastLength := 10
+    slowLength := 288
+    length := 6
+    shift := 2
+
+if (timeframe.period == "15")
+    fastLength := 7
+    slowLength := 192
+    length := 4
+    shift := 3
+
+if (timeframe.period == "60")
+    fastLength := 4
+    slowLength := 48
+    length := 4
+    shift := 12
+
+if (timeframe.period == "240")
+    fastLength := 1
+    slowLength := 12
+    length := 3
+    shift := 48
+
+
+
+
+fastMA = ta.ema(close, fastLength)
+slowMA = ta.ema(close, slowLength)
+macd = (fastMA - slowMA)/(GetPipSize()*1000)
+basis = ta.sma(macd,length)
+
+
+//BollingerBands
+
+Std = ta.stdev(macd, length)
+Upper = (Std * dev + (ta.sma(macd, length)))
+Lower = ((ta.sma(macd, length)) - (Std * dev))
+mc = macd > Upper ? #0064ff: macd < Lower ? #8f00ff : #949494 
+
+
+// Indicator
+
+plot(macd, color=mc, style = plot.style_line, linewidth = 3, transp=0)
+
+
+upper13 = 0.15
+lower13 = -0.15
+
+//zero = plot(0, title="Zero Line", color=#e1e1e1, style=line, linewidth=1, transp=50)
+
+upperRange3 = plot(upper13, title="Zero Line", color=#a37431, style=plot.style_line, linewidth=1, transp=0)
+lowerRange3 = plot(lower13, title="Zero Line", color=#a37431, style=plot.style_line, linewidth=1, transp=0)
+
+crossup3 = ta.crossover(macd, upper13)
+crossdown3 = ta.crossunder(macd, lower13)
+
+
+plot(crossup3 ? upper13 : na, title="Zero Line", color=#02ff0c, style=plot.style_circles, linewidth=3, transp=0)
+plot(crossdown3 ? lower13 : na, title="Zero Line", color=#ff0000, style=plot.style_circles, linewidth=3, transp=0)
+
+
+
+
+// Initialize variables for highlighting the background
+var int highlightStart = na
+var bool isHighlighting = false
+var int highlightDuration = 300  // 300 minutes = 5 hours
+
+// Check for MACD zero cross events and start highlighting
+if (crossup3 or crossdown3)
+    highlightStart := bar_index
+    isHighlighting := true
+
+// Calculate elapsed time since the last cross
+elapsedTime = (bar_index - highlightStart) * (time - time[1]) / 60000
+
+// Determine if we are within the highlight period
+if (isHighlighting and elapsedTime > highlightDuration)
+    isHighlighting := false  // Stop highlighting after 5 hours
+
+// Set the background color based on highlighting state
+bgcolor(isHighlighting ? #1848ccc4 : na, title="Highlight Background")
+
+

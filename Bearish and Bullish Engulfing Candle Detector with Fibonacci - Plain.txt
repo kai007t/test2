@@ -1,0 +1,66 @@
+//@version=5
+indicator("Bearish and Bullish Engulfing Candle Detector with Fibonacci - Plain", overlay=true)
+
+
+
+// Define the bullish engulfing conditions
+bullishEngulfing = (low < low[1] and close > open[1] and close > open)
+
+// Define the bearish engulfing conditions
+bearishEngulfing = (high > high[1] and close < open[1] and close < open)
+
+// Buy and Sell conditions
+buy = bullishEngulfing 
+sell = bearishEngulfing 
+
+size1 = size.tiny
+
+// Plot a shape on the chart when a bullish engulfing pattern is detected
+plotshape(series=buy, location=location.belowbar, color=color.green, style=shape.triangleup, size=size1)
+
+// Plot a shape on the chart when a bearish engulfing pattern is detected
+plotshape(series=sell, location=location.abovebar, color=color.red, style=shape.triangledown, size=size1)
+
+// Function to draw Fibonacci levels for a given high and low
+drawFibonacci(high, low) =>
+    float fibRange = high - low
+    float fib0 = low
+    float fib05 = low + fibRange * 0.5
+    float fib0618 = low + fibRange * 0.75
+    float fib1 = high
+
+    color1 = color.white
+    width1 = 1
+
+    // Draw lines for Fibonacci levels
+    line.new(x1=bar_index, y1=fib0, x2=bar_index + 2, y2=fib0, color=color1, width=width1)
+    line.new(x1=bar_index, y1=fib05, x2=bar_index + 2, y2=fib05, color=color1, width=width1)
+    line.new(x1=bar_index, y1=fib0618, x2=bar_index + 2, y2=fib0618, color=color.lime, width=width1)  // Lime green for 0.618 level
+    line.new(x1=bar_index, y1=fib1, x2=bar_index + 2, y2=fib1, color=color1, width=width1)
+
+// Draw Fibonacci for bullish engulfing
+if (buy)
+    drawFibonacci(low, high)
+
+// Draw Fibonacci for bearish engulfing
+if (sell)
+    drawFibonacci(high, low)
+
+//----------------------------------------------------------------------------------------------------------------------------
+
+//Baseline
+
+useCurrentRes4 = input(false, title="Use Current Chart Resolution?")
+resCustom4 = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+res4 = useCurrentRes4 ? timeframe.period : resCustom4
+
+
+src = input.source(close, "Source")
+
+EMA_len = input.int(12, minval=1, title="Length")
+EMA_src = close
+EMA_out = ta.ema(EMA_src, EMA_len)
+outEMA_out = request.security(syminfo.tickerid, res4, EMA_out, lookahead=barmerge.lookahead_on)
+
+
+plot(outEMA_out, "H4 Baseline", color = #8f00ff, linewidth = 1, transp = 0)//

@@ -1,0 +1,133 @@
+//Indicator - Oscillator of Moving Averages.
+//Histogram of difference between MACD (oscillator) and its MA (signal line)
+//Version 2.0 Created on 14 July 2016 by - Shailesh Saxena
+//code based on MACD 4C indicator code published by vkno422////
+//----------------------------55
+//@version=5
+
+indicator(shorttitle = "1. AK MACD BB v 1.00 - MTF W", title = "1. AK MACD BB v 1.00 - MTF W")/////////
+
+// var bool isFirstDayOfMonth = false
+
+// // Check if the current day is the first day of the month
+// if (month != month[1])
+//     isFirstDayOfMonth := true
+// else
+//     isFirstDayOfMonth := false
+
+// // Highlight the background if today is the first day of the month
+// bgcolor(isFirstDayOfMonth ? #8e7bff: na)
+
+
+
+import loxx/loxxmas/1
+
+GetPipSize() =>
+    syminfo.mintick * (syminfo.prefix == "forex" ? 10 : 1)
+
+calcBaseUnit() =>
+    bool  isForexSymbol = syminfo.type     == "forex"
+    bool  isYenPair     = syminfo.currency == "JPY"
+    float result = isForexSymbol ? isYenPair ? 0.01 : 0.0001 : syminfo.mintick
+
+
+
+src = input.source(close, "Source")
+//User Inputs
+fastLength = input.int(title="Fast MA Period", defval = 10, minval = 3)
+slowLength = input.int(title="Slow MA Period", defval = 40, minval = 3)
+length = input.int(title="MACD MA Period", defval = 4, minval = 3)
+dev = input.float(1, minval=0.0001, title="Deviations")
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+
+
+if (timeframe.period == "5")
+    shift := 384  
+
+if (timeframe.period == "15")
+    shift := 96
+
+if (timeframe.period == "30")
+    shift := 48
+
+if (timeframe.period == "60")
+    shift := 24
+
+if (timeframe.period == "240")
+    shift := 6
+
+if (timeframe.period == "D")
+    shift := 1
+
+//-------------------------------------------------------------------------------------------------------------
+
+
+
+
+//-------------------------------------------------------------------------------------------    
+
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="D")
+res = useCurrentRes ? timeframe.period : resCustom
+
+
+//MACD
+fastMA = ta.ema(close, fastLength)
+slowMA = ta.ema(close, slowLength)
+macd = (fastMA - slowMA)/(GetPipSize()*100)
+outMACD = request.security(syminfo.tickerid, res, macd, lookahead=barmerge.lookahead_on)
+
+Std = ta.stdev(macd, length)
+basis = ta.sma(macd,length)
+
+//BollingerBands1
+Upper1 = (Std * dev + (ta.sma(macd, length)))
+Lower1 = ((ta.sma(macd, length)) - (Std * dev))
+outUpper1 = request.security(syminfo.tickerid, res, Upper1, lookahead=barmerge.lookahead_on)
+outLower1 = request.security(syminfo.tickerid, res, Lower1, lookahead=barmerge.lookahead_on)
+outBasis = request.security(syminfo.tickerid, res, basis, lookahead=barmerge.lookahead_on)
+
+mc = outMACD > outUpper1 ? #0064ff: outMACD < outLower1 ? #ff9800 : #949494 
+
+plot(outMACD, color=mc, style =plot.style_line,linewidth = 2)
+
+macd_buy = outMACD > outUpper1 and outMACD > 0
+macd_sell = outMACD < outLower1 and outMACD < 0
+
+bgcolor(macd_buy ? #fff70059 : macd_sell ? #fff70059 : na)
+
+
+
+//bgcolor(macd_buy ? #00332a : macd_sell ? #311b92 : na)
+
+// plot(outBasis, style=plot.style_line, linewidth=2, color=#0080ff)
+// plot(outUpper1, style=plot.style_line, linewidth=1, color=#b2b5be)
+// plot(outLower1, style=plot.style_line, linewidth=1, color=#b2b5be)
+
+
+//hline(0, title="Zero Line", color=#696969, linestyle=hline.style_dashed, linewidth=1)
+factor = 100
+zero = 0
+upper1 = 0.1
+lower1 = -0.1
+hline(0, color=#b2b5be)
+// hline(2, color=#00bfff)
+// hline(-2, color=#00bfff)
+
+
+outTrend = (outMACD - outMACD[1]) / math.abs(outMACD)
+circleYPositionTrend = 0
+linewidth = 3
+
+// plot(outTrend > 0.1 ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=mc)
+// plot(outTrend < -0.1 ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=mc)
+
+change = 0.03
+
+plot(outTrend > change ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=#02ff0c)
+plot(outTrend < -change ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=#ff0000)//
+
+
+
+

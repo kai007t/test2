@@ -1,0 +1,305 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/use
+// © kai0072
+
+//@version=5
+indicator("H4 TREND MTF 2 sub - atr MTF", overlay=false)////
+
+
+//Get pip size---------------------------------------------------------------------------------------------------------------------------
+
+// GetPipSize() returns the instrument's pip size. Returns the 
+// tick size for non-forex instruments, and the pip size (based 
+// on whole pips) for forex currency pairs.
+GetPipSize() =>
+    syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
+    //syminfo.mintick * (syminfo.type == "futures" ? 2.5 : 1)
+
+//====================================================================
+
+//====================================================================
+//Enter ATR Inputs
+atrLength =15
+
+//ATR Function
+ma_function(source, atrLength) => ta.rma(source, atrLength)
+	
+truncate(number, decimals) =>
+    factor = math.pow(24, decimals)
+    int(number * factor) / factor
+    
+atr = truncate(ma_function(ta.tr(true), atrLength),5)
+
+//-----------------------------------------------------------------
+
+offset1 = input.int(10, minval=1)
+
+if (timeframe.period == "5")
+    offset1 := 48
+
+
+if (timeframe.period == "10")
+    offset1 := 24
+
+
+if (timeframe.period == "15")
+    offset1 := 16
+
+    
+if (timeframe.period == "30")
+    offset1 := 8
+
+
+if (timeframe.period == "60")
+    offset1 := 4
+
+
+if (timeframe.period == "120")
+    offset1 := 2
+
+    
+if (timeframe.period == "240")
+    offset1 := 1
+
+
+
+//------------------------------------------------------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------------------------------
+
+// Timezone Input
+
+
+atr_mult = input.float(1.3, minval=0.1, title="ATR Mult")
+
+useCurrentRes4 = input(false, title="Use Current Chart Resolution?")
+resCustom4 = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+res4 = useCurrentRes4 ? timeframe.period : resCustom4
+
+
+greencolor = #2DD204
+redcolor = #D2042D 
+src = input.source(close, "Source")
+
+EMA_len = input.int(12, minval=1, title="Length")
+EMA_src = close
+EMA_out = ta.ema(EMA_src, EMA_len)
+outEMA_out = request.security(syminfo.tickerid, res4, EMA_out, lookahead=barmerge.lookahead_on)
+
+
+EMA_len2 = input.int(60, minval=1, title="Length")
+EMA_out2 = ta.ema(EMA_src, EMA_len2)
+outEMA_out2 = request.security(syminfo.tickerid, res4, EMA_out2, lookahead=barmerge.lookahead_on)
+
+//plot(EMA_out2, "Moving Average", color = #006aff, linewidth = 2, transp = 40)
+
+// EMA_len3 = input.int(120, minval=1, title="Length")
+// EMA_out3 = ta.ema(EMA_src, EMA_len3)
+//plot(EMA_out3, "Moving Average", color = #ffe500, linewidth = 2, transp = 0)
+
+
+upperBand = outEMA_out + atr_mult*atr
+lowerBand = outEMA_out - atr_mult*atr
+outupperBand = request.security(syminfo.tickerid, res4, upperBand, lookahead=barmerge.lookahead_on)
+outlowerBand = request.security(syminfo.tickerid, res4, lowerBand, lookahead=barmerge.lookahead_on)
+
+
+
+//--------------------------------------------------------------
+
+
+//Double Smoothed Exponential Moving Average - DSEMA
+_dsema(src3, len3)=>
+    alpha = 2.0 / (1.0 + math.sqrt(len3))
+    _ema1 = 0., _ema2 = 0.
+    _ema1 := nz(_ema1[1]) + alpha * (src - nz(_ema1[1]))
+    _ema2 := nz(_ema2[1]) + alpha * (_ema1 - nz(_ema2[1]))
+    [_ema2, _ema2[1], false]
+
+
+
+srcoption3 = input.string("Close", "SMA Source Options", group= "Basic Settings", 
+     options = ["Close"])
+
+
+len3 = input.int(180, "Period", minval = 1, group = "Basic Settings")
+type3 = input.string("Double Smoothed Exponential Moving Average - DSEMA", options = ["Double Smoothed Exponential Moving Average - DSEMA"], group = "Basic Settings")
+rclose = close 
+
+useCurrentRes6 = input(false, title="Use Current Chart Resolution?")
+resCustom6 = input(title="Use Different Timeframe? Uncheck Box Above", defval="720")
+res6 = useCurrentRes6 ? timeframe.period : resCustom6
+
+
+
+float src3 = switch srcoption3
+	"Close" => rclose
+
+
+variant3(type, src2, len3) =>
+    sig3 = 0.0
+    trig3 = 0.0
+    special3 = false
+ 
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t3, s3, b3] = _dsema(src3, len3)
+        sig3 := s3
+        trig3 := t3
+        special3 := b3
+    
+    [trig3, sig3, special3]
+
+[trig3, sig3, special3] = variant3(type3, src3, len3)
+
+
+
+outtrig3 = request.security(syminfo.tickerid, res6, trig3, lookahead=barmerge.lookahead_on)
+outsig3 = request.security(syminfo.tickerid, res6, sig3, lookahead=barmerge.lookahead_on)
+
+
+//---------------------------------------------------------------------------
+
+
+//MACD H4----------------------------------------------------------------------------
+
+src4 = input.source(close, "Source")
+//User Inputs
+fastLength4 = input.int(title="Fast MA Period", defval = 8, minval = 3)
+slowLength4 = input.int(title="Slow MA Period", defval = 26, minval = 3)
+length4 = input.int(title="MACD MA Period", defval = 6, minval = 3)
+dev4 = input.float(1, minval=0.0001, title="Deviations")
+
+
+
+fastMA4 = ta.ema(close, fastLength4)
+slowMA4 = ta.ema(close, slowLength4)
+macd4 = (fastMA4 - slowMA4)/(GetPipSize()*10)
+outMACD4 = request.security(syminfo.tickerid, res4, macd4, lookahead=barmerge.lookahead_on)
+
+
+Std4 = ta.stdev(macd4, length4)
+basis4 = ta.sma(macd4,length4)
+outBasis4 = request.security(syminfo.tickerid, res4, basis4, lookahead=barmerge.lookahead_on)
+
+
+Upper4 = (Std4 * dev4 + (ta.sma(macd4, length4)))
+Lower4 = ((ta.sma(macd4, length4)) - (Std4 * dev4))
+outUpper4 = request.security(syminfo.tickerid, res4, Upper4, lookahead=barmerge.lookahead_on)
+outLower4 = request.security(syminfo.tickerid, res4, Lower4, lookahead=barmerge.lookahead_on)
+
+macd_buy4  = outMACD4 > outBasis4 and outMACD4 > -1
+macd_sell4 = outMACD4 < outBasis4 and outMACD4 < 1
+
+// macd_buy4  = macd4 > -1.0
+// macd_sell4 = macd4 < 1.0
+
+
+//--------------------------------------------------------------------------------------
+
+
+
+
+
+//MACD D----------------------------------------------------------------------------------
+
+src5 = input.source(close, "Source")
+//User Inputs
+fastLength5 = input.int(title="Fast MA Period", defval = 6, minval = 3)
+slowLength5 = input.int(title="Slow MA Period", defval = 160, minval = 3)
+length5 = input.int(title="MACD MA Period", defval = 4, minval = 3)
+dev5 = input.float(1, minval=0.0001, title="Deviations")
+
+// useCurrentRes6 = input(false, title="Use Current Chart Resolution?")
+// resCustom6 = input(title="Use Different Timeframe? Uncheck Box Above", defval="720")
+// res6 = useCurrentRes6 ? timeframe.period : resCustom6
+
+
+fastMA5 = ta.ema(close, fastLength5)
+slowMA5 = ta.ema(close, slowLength5)
+macd5 = (fastMA5 - slowMA5)/(GetPipSize()*10)
+outMACD5 = request.security(syminfo.tickerid, res6, macd5, lookahead=barmerge.lookahead_on)
+
+Std5 = ta.stdev(macd5, length5)
+basis5 = ta.sma(macd5,length5)
+
+Upper5 = (Std5 * dev5 + (ta.sma(macd5, length5)))
+Lower5 = ((ta.sma(macd5, length5)) - (Std5 * dev5))
+outUpper5 = request.security(syminfo.tickerid, res6, Upper5, lookahead=barmerge.lookahead_on)
+outLower5 = request.security(syminfo.tickerid, res6, Lower5, lookahead=barmerge.lookahead_on)
+outBasis5 = request.security(syminfo.tickerid, res6, basis5, lookahead=barmerge.lookahead_on)
+
+
+macd_buy5  = outMACD5 > outUpper5 //and outMACD5 > 0
+macd_sell5 = outMACD5 < outLower5 //and outMACD5 < 0
+
+
+//-------------------------------------------------------------------------------------
+
+
+//PLOT--------------------------------------------------------------------------------------
+color_buy = #006aff
+color_sell = #8f00ff
+
+
+size1 = size.small
+
+pos1_buy  = 0
+pos1_sell = 0
+char1 = '⦁'
+
+close_H4 = request.security(syminfo.tickerid, "240", close, lookahead=barmerge.lookahead_on)
+high_H4  = request.security(syminfo.tickerid, "240", high, lookahead=barmerge.lookahead_on)
+low_H4   = request.security(syminfo.tickerid, "240", low, lookahead=barmerge.lookahead_on)
+
+
+// buy_condition  = macd_buy4  and macd_buy5  and close_H4 > outEMA_out and low_H4 < outupperBand //and outEMA_out > outEMA_out2
+// sell_condition = macd_sell4 and macd_sell5 and close_H4 < outEMA_out and high_H4 > outlowerBand //and outEMA_out < outEMA_out2 
+
+buy_condition  = macd_buy4  and macd_buy5  and close_H4 > outEMA_out and low_H4 < outupperBand //and outEMA_out > outEMA_out2
+sell_condition = macd_sell4 and macd_sell5 and close_H4 < outEMA_out and high_H4 > outlowerBand //and outEMA_out < outEMA_out2 
+
+// buy_condition  =  macd_buy5
+// sell_condition =  macd_sell5
+
+
+// plotchar(RangeL1_3 ? pos3_buy : na,  color = color1, char = char3, size = size1, location = location.absolute)
+// plotchar(RangeS1_3 ? pos3_sell : na, color = color1, char = char3, size = size1, location = location.absolute)
+
+// plotchar(buy_condition  ? pos1_buy : na,  color = color_buy,  char = char1, size = size1, location = location.absolute, offset = -offset1)
+// plotchar(sell_condition ? pos1_sell : na, color = color_sell, char = char1, size = size1, location = location.absolute, offset = -offset1)
+
+plotchar(buy_condition  ? pos1_buy : na,  color = color_buy,  char = char1, size = size1, location = location.absolute)
+plotchar(sell_condition ? pos1_sell : na, color = color_sell, char = char1, size = size1, location = location.absolute)
+
+
+// Define 4-hour interval in milliseconds (4 hours * 60 minutes * 60 seconds * 1000 milliseconds)
+fourHourInterval = 4 * 60 * 60 * 1000
+
+// Check if the current bar is on a 4-hour boundary
+isFourHourSeparator = (time % fourHourInterval == 0)
+
+// Plot a custom character ('•' or 'o') at the close price for every 4-hour interval
+plotchar(isFourHourSeparator ? pos1_buy : na, char='·', title="4-Hour Separator", color=#ffee00, location=location.absolute, size=size.small)
+
+
+
+if buy_condition
+    alert("NNFX H4 Buy", alert.freq_once_per_bar_close)
+
+if sell_condition
+    alert("NNFX H4 Sell", alert.freq_once_per_bar_close)
+
+
+
+
+
+//----------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+

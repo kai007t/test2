@@ -1,0 +1,29 @@
+//@version=5
+indicator(title='Moving Average Exponential with Standard Deviation Band', shorttitle='EMA+STDEV Channel', overlay=true, timeframe='')
+
+//ss_ema = input.bool(true,"Switch SS or EMA")
+len = input.int(50, minval=1, maxval = 50,title='Length')
+IC_factor = input.float(2, minval=1, maxval = 2, title='Inner Channel Stdev Factor')
+OC_factor = input.float(3, minval=1, maxval = 3, title='Outter Channel Stdev Factor')
+
+
+src = input(close, title='Source')
+offset = input.int(title='Offset', defval=0, minval=-500, maxval=500)
+out = ta.ema(src, len)
+plot(out, title='EMA', color=color.new(color.black, 0), offset=offset)
+
+IUC = out + IC_factor * ta.stdev(out, len)
+OUC = out + OC_factor * ta.stdev(out, len)
+
+IDC = out - IC_factor * ta.stdev(out, len)
+ODC = out - OC_factor * ta.stdev(out, len)
+
+plot(IUC, title='IUC', color=color.new(color.orange, 0), offset=offset)
+plot(OUC, title='IUC', color=color.new(color.red, 0), offset=offset)
+
+plot(IDC, title='IDC', color=color.new(color.green, 0), offset=offset)
+plot(ODC, title='IOD', color=color.new(color.navy, 0), offset=offset)
+
+
+
+

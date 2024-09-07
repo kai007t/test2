@@ -1,0 +1,114 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// The original indicator is created by ashkanpower and modified by FX365_Thailand
+
+// Original : Pip Value
+// https://www.tradingview.com/script/OdV2qkiW-Pip-Value/
+
+// Revision history
+// v60.0 First release
+// v61.0 Added logic for gold and silver
+// v63.0 Added logic for BTC and ETH
+
+
+//@version=5
+indicator("Pip Value Calculator", overlay=true)
+
+// compact = input.bool(title="compact mode",defval=false)
+acc_currency = input.string(defval="USD", options=["USD","JPY", "EUR", "GBP", "AUD", "THB"], title="Account Currency")
+pips = input.int(title="Pips",defval=1, minval=1, tooltip="[Gold]1USD=10pips,[Silver]1USD=100Pips,[BTC/ETH]1USD=10pips")
+lots = input.float(title="Lots",defval=1, minval=0.01, tooltip="[Forex]1 lot is 100,000 unit of currency,[Gold]1lot=100ounce,[Silver]1lot=5000ounce,[BTC]1lot=1BTC,[ETH]1lot=1ETH")
+// loss = input.float(title="Loss Amount in Account Currency",  defval=10000, minval=1)
+// ratio = input.float(title="R&R(1:N), N = ? ", defval=2, minval=1, maxval=100)
+fontcolor = input.color(defval=color.rgb(255, 255, 255), title="Font Color", inline="color" )
+bgcolor = input.color(defval=color.rgb(0, 0, 0), title="Background Color", inline="color" )
+
+cur = syminfo.currency
+base = syminfo.basecurrency
+
+usdjpy_rate = request.security("USDJPY", timeframe.period, close)
+usdeur_rate = request.security("USDEUR", timeframe.period, close)
+usdgbp_rate = request.security("USDGBP", timeframe.period, close)
+usdaud_rate = request.security("USDAUD", timeframe.period, close)
+usdthb_rate = request.security("USDTHB", timeframe.period, close)
+
+
+// baseusd =  (syminfo.ticker == 'XAGUSD' or syminfo.ticker == 'SILVER') ? 1 :  nz(request.security(base + "USD", timeframe.period, close, ignore_invalid_symbol=true), 1) 
+baseusd = nz(request.security(base + "USD", timeframe.period, close, ignore_invalid_symbol=true), 1)
+
+
+jpyFixer = base == "JPY" or cur == "JPY" ? 100 : 1
+
+profit_forex = acc_currency == "USD" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer , 2) 
+ : acc_currency == "JPY" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer * usdjpy_rate, 2)
+ : acc_currency == "EUR" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer * usdeur_rate, 2)
+ : acc_currency == "GBP" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer * usdgbp_rate, 2)
+ : acc_currency == "AUD" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer * usdaud_rate, 2)
+ : acc_currency == "THB" ? math.round(pips * (10 * lots) / close * baseusd * jpyFixer * usdthb_rate, 2)
+ : na
+ 
+gold_silver_profit = (syminfo.ticker == 'XAGUSD' or syminfo.ticker == 'SILVER') ? pips * 50 * lots : (syminfo.ticker == 'XAUUSD' or syminfo.ticker == 'GOLD') ? pips * 10 * lots : na 
+
+profit_commo = acc_currency == "USD" ? math.round(gold_silver_profit,2)
+ : acc_currency == "JPY" ? math.round(gold_silver_profit * usdjpy_rate,2)
+ : acc_currency == "EUR" ? math.round(gold_silver_profit * usdeur_rate,2)
+ : acc_currency == "GBP" ? math.round(gold_silver_profit * usdgbp_rate,2)
+ : acc_currency == "AUD" ? math.round(gold_silver_profit * usdaud_rate,2)
+ : acc_currency == "THB" ? math.round(gold_silver_profit * usdthb_rate,2)
+ : na 
+ 
+ 
+crypto_profit = (syminfo.ticker == 'BTCUSD' ) ? pips * 10 * lots /100 :  (syminfo.ticker == 'ETHUSD') ? pips * lots /10 : na
+
+profit_crypto = acc_currency == "USD" ? math.round(crypto_profit,2)
+ : acc_currency == "JPY" ? math.round(crypto_profit * usdjpy_rate,2)
+ : acc_currency == "EUR" ? math.round(crypto_profit * usdeur_rate,2)
+ : acc_currency == "GBP" ? math.round(crypto_profit * usdgbp_rate,2)
+ : acc_currency == "AUD" ? math.round(crypto_profit * usdaud_rate,2)
+ : acc_currency == "THB" ? math.round(crypto_profit * usdthb_rate,2)
+ : na   
+ 
+//Get profit for plotting
+profit = (syminfo.ticker == 'XAGUSD' or syminfo.ticker == 'SILVER' or syminfo.ticker == 'XAUUSD' or syminfo.ticker == 'GOLD') ? profit_commo : (syminfo.ticker == 'BTCUSD' or syminfo.ticker == 'ETHUSD') ? profit_crypto : profit_forex 
+ 
+ 
+theLoss = 0.0 
+foundPips = 0
+
+// for p = 1 to 1000
+//     prof =  acc_currency == "USD" ?  p * (10 * lots) / close * baseusd * jpyFixer
+//      : acc_currency == "JPY" ?  p * (10 * lots) / close * baseusd * jpyFixer / usdjpy_rate
+//      : na
+//     if prof > theLoss and prof <= loss 
+//         theLoss := prof
+//         foundPips := p
+
+var lab = label.new(0 ,0, "")
+
+var table riskTable = table.new(position.bottom_right , 1, 3, bgcolor = bgcolor, frame_width = 4, border_width = 0)
+if barstate.islast
+    
+    str1 = ""
+    str2 = ""
+    
+    str1 := acc_currency == "USD" ? str.tostring(profit) + "$ per " + str.tostring(pips) + " pips"
+      : acc_currency == "JPY" ? str.tostring(profit) + "JPY per " + str.tostring(pips) + " pips"
+      : acc_currency == "EUR" ? str.tostring(profit) + "EUR per " + str.tostring(pips) + " pips"
+      : acc_currency == "GBP" ? str.tostring(profit) + "GBP per " + str.tostring(pips) + " pips"
+      : acc_currency == "AUD" ? str.tostring(profit) + "AUD per " + str.tostring(pips) + " pips"
+      : acc_currency == "THB" ? str.tostring(profit) + "THB per " + str.tostring(pips) + " pips"
+      : na
+    // str2 := "Use " + str.tostring(foundPips) + ":" + str.tostring(foundPips * ratio) + " pips for " + str.tostring(math.round(theLoss, 2)) + "$"
+        
+    //table.cell(riskTable, 0, 0, str.tostring(lots) + " lot(s)", text_color = fontcolor, text_halign = text.align_left,bgcolor = bgcolor)
+    table.cell(riskTable, 0, 1, str1, text_color = fontcolor, text_halign = text.align_left,bgcolor = bgcolor)
+    // table.cell(riskTable, 0, 2, str2, text_color = color.black, text_halign = text.align_left)
+
+// if barstate.islast
+//     label.delete(lab)
+//     if compact == false
+//         lab := label.new(bar_index + 30, low, , textcolor=color.black, style=label.style_label_center)
+//     else
+//         lab := label.new(bar_index + 30, low, str.tostring(profit) + "$   " + str.tostring(pips) + "p   " + str.tostring(lots / 100) + " l\n\n " + str.tostring(foundPips) + ":" + str.tostring(foundPips * ratio) + "   " + str.tostring(math.round(theLoss, 2)) + "$  R:R", textcolor=color.black, style=label.style_label_center)
+//     label.set_color(lab, color.white)
+    
+    

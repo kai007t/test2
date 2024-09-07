@@ -1,0 +1,335 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © loxx
+
+//@version=5
+indicator("Averages MACD MTF", 
+     shorttitle="Averages MACD MTF", 
+     overlay = false, 
+     timeframe="", 
+     timeframe_gaps = true)
+     
+import loxx/loxxmas/1
+
+GetPipSize() =>
+    syminfo.mintick * (syminfo.prefix == "forex" ? 10 : 1)
+
+greencolor = #2DD204
+redcolor = #D2042D 
+
+lightgreencolor = #96E881 
+lightredcolor =  #DF4F6C
+
+calcBaseUnit() =>
+    bool  isForexSymbol = syminfo.type     == "forex"
+    bool  isYenPair     = syminfo.currency == "JPY"
+    float result = isForexSymbol ? isYenPair ? 0.01 : 0.0001 : syminfo.mintick
+
+src = input.source(close, "Source", group = "Core Settings")
+
+macdtype = input.string("Double Smoothed Exponential Moving Average - DSEMA", "MACD MA Type", options = ["ADXvma - Average Directional Volatility Moving Average",  "Ahrens Moving Average"
+     , "Alexander Moving Average - ALXMA", "Double Exponential Moving Average - DEMA", "Double Smoothed Exponential Moving Average - DSEMA"
+     , "Exponential Moving Average - EMA", "Fast Exponential Moving Average - FEMA", "Fractal Adaptive Moving Average - FRAMA"
+     , "Hull Moving Average - HMA", "IE/2 - Early T3 by Tim Tilson", "Integral of Linear Regression Slope - ILRS"
+     , "Instantaneous Trendline", "Laguerre Filter", "Leader Exponential Moving Average", "Linear Regression Value - LSMA (Least Squares Moving Average)"
+     , "Linear Weighted Moving Average - LWMA", "McGinley Dynamic", "McNicholl EMA", "Non-Lag Moving Average", "Parabolic Weighted Moving Average"
+     , "Recursive Moving Trendline", "Simple Moving Average - SMA", "Sine Weighted Moving Average", "Smoothed Moving Average - SMMA"
+     , "Smoother", "Super Smoother", "Three-pole Ehlers Butterworth", "Three-pole Ehlers Smoother"
+     , "Triangular Moving Average - TMA", "Triple Exponential Moving Average - TEMA", "Two-pole Ehlers Butterworth", "Two-pole Ehlers smoother"
+     , "Volume Weighted EMA - VEMA", "Zero-Lag DEMA - Zero Lag Double Exponential Moving Average", "Zero-Lag Moving Average"
+     , "Zero Lag TEMA - Zero Lag Triple Exponential Moving Average"],
+     group = "MACD Settings")
+
+
+Fast_MA =  input.int(108, "MACD Fast MA Period", group = "MACD Settings")
+Slow_MA = input.int(1920, "MACD Slow MA Period", group = "MACD Settings")
+signal = input.int(48, "Signal MA Period", group = "MACD Settings")
+
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="15")
+res = useCurrentRes ? timeframe.period : resCustom
+
+
+frama_FC = input.int(defval=1, title="* Fractal Adjusted (FRAMA) Only - FC", group = "Moving Average Inputs")
+frama_SC = input.int(defval=200, title="* Fractal Adjusted (FRAMA) Only - SC", group = "Moving Average Inputs")
+instantaneous_alpha = input.float(defval=0.07, minval = 0, title="* Instantaneous Trendline (INSTANT) Only - Alpha", group = "Moving Average Inputs")
+_laguerre_alpha = input.float(title="* Laguerre Filter (LF) Only - Alpha", minval=0, maxval=1, step=0.1, defval=0.7, group = "Moving Average Inputs")
+lsma_offset = input.int(defval=0, title="* Least Squares Moving Average (LSMA) Only - Offset", group = "Moving Average Inputs")
+_pwma_pwr = input.int(2, "* Parabolic Weighted Moving Average (PWMA) Only - Power", minval=0, group = "Moving Average Inputs")
+kfl=input.float(0.666, title="* Kaufman's Adaptive MA (KAMA) Only - Fast End", group = "Moving Average Inputs")
+ksl=input.float(0.0645, title="* Kaufman's Adaptive MA (KAMA) Only - Slow End", group = "Moving Average Inputs")
+amafl = input.int(2, title="* Adaptive Moving Average (AMA) Only - Fast", group = "Moving Average Inputs")
+amasl = input.int(30, title="* Adaptive Moving Average (AMA) Only - Slow", group = "Moving Average Inputs")
+
+variant(type, src, len) =>
+    sig = 0.0
+    trig = 0.0
+    special = false
+    if type == "ADXvma - Average Directional Volatility Moving Average"
+        [t, s, b] = loxxmas.adxvma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Ahrens Moving Average"
+        [t, s, b] = loxxmas.ahrma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Alexander Moving Average - ALXMA"
+        [t, s, b] = loxxmas.alxma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Double Exponential Moving Average - DEMA"
+        [t, s, b] = loxxmas.dema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t, s, b] = loxxmas.dsema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Exponential Moving Average - EMA"
+        [t, s, b] = loxxmas.ema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Fast Exponential Moving Average - FEMA"
+        [t, s, b] = loxxmas.fema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Fractal Adaptive Moving Average - FRAMA"
+        [t, s, b] = loxxmas.frama(src, len, frama_FC, frama_SC)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Hull Moving Average - HMA"
+        [t, s, b] = loxxmas.hma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "IE/2 - Early T3 by Tim Tilson"
+        [t, s, b] = loxxmas.ie2(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Integral of Linear Regression Slope - ILRS"
+        [t, s, b] = loxxmas.ilrs(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Instantaneous Trendline"
+        [t, s, b] = loxxmas.instant(src, instantaneous_alpha)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Laguerre Filter"
+        [t, s, b] = loxxmas.laguerre(src, _laguerre_alpha)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Leader Exponential Moving Average"
+        [t, s, b] = loxxmas.leader(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Linear Regression Value - LSMA (Least Squares Moving Average)"
+        [t, s, b] = loxxmas.lsma(src, len, lsma_offset)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Linear Weighted Moving Average - LWMA"
+        [t, s, b] = loxxmas.lwma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "McGinley Dynamic"
+        [t, s, b] = loxxmas.mcginley(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "McNicholl EMA"
+        [t, s, b] = loxxmas.mcNicholl(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Non-Lag Moving Average"
+        [t, s, b] = loxxmas.nonlagma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Parabolic Weighted Moving Average"
+        [t, s, b] = loxxmas.pwma(src, len, _pwma_pwr)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Recursive Moving Trendline"
+        [t, s, b] = loxxmas.rmta(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Simple Moving Average - SMA"
+        [t, s, b] = loxxmas.sma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Sine Weighted Moving Average"
+        [t, s, b] = loxxmas.swma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Smoothed Moving Average - SMMA"
+        [t, s, b] = loxxmas.smma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Smoother"
+        [t, s, b] = loxxmas.smoother(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Super Smoother"
+        [t, s, b] = loxxmas.super(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Three-pole Ehlers Butterworth"
+        [t, s, b] = loxxmas.threepolebuttfilt(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Three-pole Ehlers Smoother"
+        [t, s, b] = loxxmas.threepolesss(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Triangular Moving Average - TMA"
+        [t, s, b] = loxxmas.tma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Triple Exponential Moving Average - TEMA"
+        [t, s, b] = loxxmas.tema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Two-pole Ehlers Butterworth"
+        [t, s, b] = loxxmas.twopolebutter(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Two-pole Ehlers smoother"
+        [t, s, b] = loxxmas.twopoless(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Volume Weighted EMA - VEMA"
+        [t, s, b] = loxxmas.vwema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Zero-Lag DEMA - Zero Lag Double Exponential Moving Average"
+        [t, s, b] = loxxmas.zlagdema(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Zero-Lag Moving Average"
+        [t, s, b] = loxxmas.zlagma(src, len)
+        sig := s
+        trig := t
+        special := b
+    else if type == "Zero Lag TEMA - Zero Lag Triple Exponential Moving Average"
+        [t, s, b] = loxxmas.zlagtema(src, len)
+        sig := s
+        trig := t
+        special := b
+    trig
+
+f_bb(src, length, mult, type) =>
+    float basis = variant(type, src, length)
+    float dev = mult * ta.stdev(src, length)
+    [basis, basis + dev, basis - dev]
+
+macd = variant(macdtype, src, Fast_MA) - variant(macdtype, src, Slow_MA) 
+signal2 = variant(macdtype, macd, signal)
+hist = (macd - signal2) / (GetPipSize() * 1000)
+
+outhist = request.security(syminfo.tickerid, res, hist)
+
+// Plot colors
+col_grow_above = #8e7bff
+col_grow_below = #8B4513
+col_fall_above = #483d8b
+col_fall_below = #DAA520
+col_macd = #0094ff
+col_signal = #ff6a00
+
+upper0 = 0.015
+lower0 = -0.015
+upper11 = 0.03
+lower11 = -0.03
+upper12 = 0.05
+lower12 = -0.05
+
+plot(outhist, title="Histogram", style=plot.style_histogram, color=(outhist>=0 ? (outhist[3] < outhist ? col_grow_above : col_fall_above) : (outhist[3] < outhist ? col_grow_below : col_fall_below) ), transp=0, linewidth = 4 )
+//
+
+hline(0.03, color=#d1d4dc)
+hline(-0.03, color=#d1d4dc)
+hline(0.05, color=#434651)
+hline(-0.05, color=#434651)
+// plotshape(ta.crossover(outhist, upper0) ? upper0 : na, color=#ff0000, style=shape.triangleup, location=location.absolute, size= size.tiny)
+// plotshape(ta.crossunder(outhist, lower0) ? lower0 : na, color=#ff0000, style=shape.triangledown, location=location.absolute, size= size.tiny)
+plotshape(ta.crossover(outhist, upper11) ? upper11 : na, color=#32CD32, style=shape.triangleup, location=location.absolute, size= size.tiny)
+plotshape(ta.crossunder(outhist, lower11) ? lower11 : na, color=#32CD32, style=shape.triangledown, location=location.absolute, size= size.tiny)
+plotshape(ta.crossover(outhist, upper12) ? upper12 : na, color=#00bfff, style=shape.triangleup, location=location.absolute, size= size.tiny)
+plotshape(ta.crossunder(outhist, lower12) ? lower12 : na, color=#00bfff, style=shape.triangledown, location=location.absolute, size= size.tiny)
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//-------------------------------------------------------------------------------------------    
+//MACD 2096
+
+// //2096
+// fastLength3 = input.int(20, minval=1)
+// slowLength3 = input.int(144,minval=1)
+// signalLength3 = input.int(6,minval=1)
+// length3 = input.int(6, minval=1, title="BB Periods")
+// dev3 = input.float(1.2, minval=0.0001, title="Deviation1")
+
+
+// fastMA3 = ta.ema(close, fastLength3)
+// slowMA3 = ta.ema(close, slowLength3)
+// macd3 = (fastMA3 - slowMA3)/(GetPipSize()*1000)
+
+// Std3 = ta.stdev(macd3, length3)
+// basis3 = ta.sma(macd3,length3)
+
+// //BollingerBands1
+// Upper3 = (Std3 * dev3 + (ta.sma(macd3, length3)))
+// Lower3 = ((ta.sma(macd3, length3)) - (Std3 * dev3))
+
+// mc3 = macd3 > Upper3 ? #02ff0c: macd3 < Lower3 ? #ff0000 : #5d5d60 
+
+// circleYPositionBuy = -0.03
+// circleYPositionSell = 0.03
+// lineWidth=2
+
+// plot((macd3>0.04) and (macd3<0.1) and (macd3>basis3) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 0, 0, 50))
+// plot((macd3<-0.04) and (macd3>-0.1) and (macd3<basis3) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 0, 0, 50))
+
+// plot((macd3>0.101) and (macd3<0.15) and (macd3>basis3) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 247, 0, 30))
+// plot((macd3<-0.101) and (macd3>-0.15) and (macd3<basis3) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 247, 0, 30))
+
+// plot((macd3>0.151) and (macd3<0.2) and (macd3>basis3) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(0, 123, 255))
+// plot((macd3<-0.151) and (macd3>-0.2) and (macd3<basis3) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(0, 123, 255))
+
+// plot((macd3>0.201) and (macd3<0.25) and (macd3>basis3) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(199, 21, 133))
+// plot((macd3<-0.201) and (macd3>-0.25) and (macd3<basis3) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(199, 21, 133))
+
+
+//-------------------------------------------------------------------------------------------    

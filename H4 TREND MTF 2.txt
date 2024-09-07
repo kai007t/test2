@@ -1,0 +1,314 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/use
+// © kai0072
+
+//@version=5
+indicator("H4 TREND MTF 2", overlay=true)/////
+
+
+
+//Highlight Monday-----------------------------------------------------------------------------------------------------------------------
+earlyhour = 2
+latehour = 24
+enSun = input(true, title="Highlight Sunday.?")
+isSun() => dayofweek(time('D')) == dayofweek.sunday and close ? 1 : 0
+bgcolor(enSun and isSun() ? (isSun() ? color.new(#0084ff, 85) : na) : na)///////////
+
+
+//Get pip size---------------------------------------------------------------------------------------------------------------------------
+
+// GetPipSize() returns the instrument's pip size. Returns the 
+// tick size for non-forex instruments, and the pip size (based 
+// on whole pips) for forex currency pairs.
+GetPipSize() =>
+    syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
+    //syminfo.mintick * (syminfo.type == "futures" ? 2.5 : 1)
+
+//====================================================================
+
+//====================================================================
+//Enter ATR Inputs
+atrLength =15
+
+//ATR Function
+ma_function(source, atrLength) => ta.rma(source, atrLength)
+	
+truncate(number, decimals) =>
+    factor = math.pow(24, decimals)
+    int(number * factor) / factor
+    
+atr = truncate(ma_function(ta.tr(true), atrLength),5)
+
+atr_mult_TP = input.float(1.3, minval=1, title="ATR TP")
+atr_mult_SL = input.float(1.5, minval=1, title="ATR SL")
+
+//-----------------------------------------------------------------
+
+offset1 = input.int(10, minval=1)
+
+
+
+if (timeframe.period == "15")
+    offset1 := 16
+
+    
+if (timeframe.period == "30")
+    offset1 := 8
+
+
+if (timeframe.period == "60")
+    offset1 := 4
+
+
+if (timeframe.period == "120")
+    offset1 := 2
+
+
+if (timeframe.period == "180")
+    offset1 := 1
+
+    
+if (timeframe.period == "240")
+    offset1 := 1
+
+
+
+//------------------------------------------------------------------------------------------------------------------------
+
+
+// Define input for higher timeframe
+tf_input = input.string(title="Higher Timeframe",  defval="240", options=["D", "W", "240"])
+
+// Calculate high and low conditions
+highCondition = high[1] > high[0] and high[1] > high[2]
+lowCondition = low[1] < low[0] and low[1] < low[2]
+
+// Set plot colors and styles
+highColor = color.green
+lowColor = color.red
+lineStyle = line.style_solid
+lineWidth = 2
+
+// Calculate highest and lowest points on higher timeframe
+highestPoint = request.security(syminfo.tickerid, tf_input, high[1] == ta.highest(high, 3) ? high[1] : na, lookahead=barmerge.lookahead_on)
+lowestPoint = request.security(syminfo.tickerid, tf_input, low[1] == ta.lowest(low, 3) ? low[1] : na, lookahead=barmerge.lookahead_on)
+
+
+// Plot highest and lowest points
+plot(highestPoint, "Highest Point", color=color.rgb(0, 255, 8, 20), linewidth=lineWidth, style = plot.style_circles, offset = -offset1)
+plot(lowestPoint, "Lowest Point", color=color.rgb(255, 0, 0, 20),  linewidth=lineWidth, style = plot.style_circles, offset = -offset1)
+
+
+
+//-----------------------------------------------------------------------------------------------------
+
+atr_mult = input.float(1.2, minval=1, title="ATR Mult")
+
+
+greencolor = #2DD204
+redcolor = #D2042D 
+src = input.source(close, "Source")
+
+//EMA 60
+EMA60_len = input.int(60, minval=1, title="Length")
+EMA60_src = close
+EMA60_out = ta.ema(EMA60_src, EMA60_len)
+plot(EMA60_out, title="EMA60", color=color.orange, transp=0, linewidth=1)
+
+
+EMA_len = input.int(12, minval=1, title="Length")
+EMA_src = close
+EMA_out = ta.ema(EMA_src, EMA_len)
+plot(EMA_out, "Moving Average", color = #8f00ff, linewidth = 2, transp = 0)//
+
+
+upperBand = EMA_out + atr_mult*atr
+lowerBand = EMA_out - atr_mult*atr
+
+plot(upperBand, color=color.rgb(255, 255, 255, 70), title="Upper Band", linewidth = 1)
+plot(lowerBand, color=color.rgb(255, 255, 255, 70), title="Lower Band", linewidth = 1)
+
+
+
+
+//--------------------------------------------------------------
+
+
+//Double Smoothed Exponential Moving Average - DSEMA
+_dsema(src3, len3)=>
+    alpha = 2.0 / (1.0 + math.sqrt(len3))
+    _ema1 = 0., _ema2 = 0.
+    _ema1 := nz(_ema1[1]) + alpha * (src - nz(_ema1[1]))
+    _ema2 := nz(_ema2[1]) + alpha * (_ema1 - nz(_ema2[1]))
+    [_ema2, _ema2[1], false]
+
+
+srcoption3 = input.string("Close", "SMA Source Options", group= "Basic Settings", 
+     options = ["Close"])
+
+
+len3 = input.int(240, "Period", minval = 1, group = "Basic Settings")
+type3 = input.string("Double Smoothed Exponential Moving Average - DSEMA", options = ["Double Smoothed Exponential Moving Average - DSEMA"], group = "Basic Settings")
+rclose = close 
+
+useCurrentResH41 = input(false, title="Use Current Chart Resolution?")
+resCustomH41 = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+resH41 = useCurrentResH41 ? timeframe.period : resCustomH41
+
+float src3 = switch srcoption3
+	"Close" => rclose
+
+
+variant3(type, src2, len3) =>
+    sig3 = 0.0
+    trig3 = 0.0
+    special3 = false
+ 
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t3, s3, b3] = _dsema(src3, len3)
+        sig3 := s3
+        trig3 := t3
+        special3 := b3
+    
+    [trig3, sig3, special3]
+
+[trig3, sig3, special3] = variant3(type3, src3, len3)
+
+
+outtrig3 = request.security(syminfo.tickerid, resH41, trig3, lookahead=barmerge.lookahead_on)
+outsig3 = request.security(syminfo.tickerid, resH41, sig3, lookahead=barmerge.lookahead_on)
+//plot(outtrig3, "Moving Average", color = outtrig3 > outsig3 ? greencolor : redcolor, linewidth = 2, transp = 50)
+
+
+//---------------------------------------------------------------------------
+
+
+//MACD H4----------------------------------------------------------------------------
+
+src4 = input.source(close, "Source")
+//User Inputs
+fastLength4 = input.int(title="Fast MA Period", defval = 8, minval = 3)
+slowLength4 = input.int(title="Slow MA Period", defval = 26, minval = 3)
+length4 = input.int(title="MACD MA Period", defval = 6, minval = 3)
+dev4 = input.float(1, minval=0.0001, title="Deviations")
+
+
+fastMA4 = ta.ema(close, fastLength4)
+slowMA4 = ta.ema(close, slowLength4)
+macd4 = (fastMA4 - slowMA4)/(GetPipSize()*10)
+
+Std4 = ta.stdev(macd4, length4)
+basis4 = ta.sma(macd4,length4)
+
+Upper4 = (Std4 * dev4 + (ta.sma(macd4, length4)))
+Lower4 = ((ta.sma(macd4, length4)) - (Std4 * dev4))
+
+macd_buy4  = macd4 > basis4 and macd4 > -1
+macd_sell4 = macd4 < basis4 and macd4 < 1
+
+// macd_buy4  = macd4 > -1.0
+// macd_sell4 = macd4 < 1.0
+
+
+//--------------------------------------------------------------------------------------
+
+
+
+//MACD D----------------------------------------------------------------------------------
+
+src5 = input.source(close, "Source")
+//User Inputs
+fastLength5 = input.int(title="Fast MA Period", defval = 6, minval = 3)
+slowLength5 = input.int(title="Slow MA Period", defval = 160, minval = 3)
+length5 = input.int(title="MACD MA Period", defval = 4, minval = 3)
+dev5 = input.float(1, minval=0.0001, title="Deviations")
+
+useCurrentRes6 = input(false, title="Use Current Chart Resolution?")
+resCustom6 = input(title="Use Different Timeframe? Uncheck Box Above", defval="720")
+res6 = useCurrentRes6 ? timeframe.period : resCustom6
+
+
+fastMA5 = ta.ema(close, fastLength5)
+slowMA5 = ta.ema(close, slowLength5)
+macd5 = (fastMA5 - slowMA5)/(GetPipSize()*10)
+outMACD5 = request.security(syminfo.tickerid, res6, macd5, lookahead=barmerge.lookahead_on)
+
+Std5 = ta.stdev(macd5, length5)
+basis5 = ta.sma(macd5,length5)
+
+Upper5 = (Std5 * dev5 + (ta.sma(macd5, length5)))
+Lower5 = ((ta.sma(macd5, length5)) - (Std5 * dev5))
+outUpper5 = request.security(syminfo.tickerid, res6, Upper5, lookahead=barmerge.lookahead_on)
+outLower5 = request.security(syminfo.tickerid, res6, Lower5, lookahead=barmerge.lookahead_on)
+outBasis5 = request.security(syminfo.tickerid, res6, basis5, lookahead=barmerge.lookahead_on)
+
+macd_buy5  = outMACD5 > outUpper5 //and outMACD5 > -1
+macd_sell5 = outMACD5 < outLower5 //and outMACD5 < 1//
+
+
+//-------------------------------------------------------------------------------------
+
+
+//PLOT------------------------------------------------------------------------------------
+color1 = color.rgb(255, 255, 0, 40)
+size1 = size.tiny
+
+pos1_buy  = close - (atr_mult_SL*atr)
+pos1_sell = close + (atr_mult_SL*atr)
+char1 = '●'
+
+
+color2 = color.rgb(255, 255, 25, 60)
+
+pos1_buy_TP  = close + (atr_mult_TP*atr)
+pos1_sell_TP = close - (atr_mult_TP*atr)
+
+char2 = '⁃'
+
+buy_condition     = close > EMA_out and EMA_out > EMA60_out and close < upperBand and macd_buy4  and macd_buy5 
+sell_condition    = close < EMA_out and EMA_out < EMA60_out and close > lowerBand and macd_sell4 and macd_sell5
+
+buy_condition_TP  = close > EMA_out and EMA_out > EMA60_out and close < upperBand and macd_buy4  and macd_buy5 
+sell_condition_TP = close < EMA_out and EMA_out < EMA60_out and close > lowerBand and macd_sell4 and macd_sell5
+
+
+// buy_condition  =  macd_buy5
+// sell_condition =  macd_sell5
+
+
+// plotchar(RangeL1_3 ? pos3_buy : na,  color = color1, char = char3, size = size1, location = location.absolute)
+// plotchar(RangeS1_3 ? pos3_sell : na, color = color1, char = char3, size = size1, location = location.absolute)
+
+// plotchar(buy_condition  ? pos1_buy : na,  color = color1, char = char1, size = size1, location = location.absolute)
+// plotchar(sell_condition ? pos1_sell : na, color = color1, char = char1, size = size1, location = location.absolute)
+
+plot(buy_condition  ? pos1_buy : na, color=color1, linewidth=lineWidth, style = plot.style_circles, offset = -offset1)
+plot(sell_condition ? pos1_sell : na, color=color1,  linewidth=lineWidth, style = plot.style_circles, offset = -offset1)
+
+plotchar(buy_condition_TP  ? pos1_buy_TP : na,  color = color2, char = char2, size = size1, location = location.absolute)
+plotchar(sell_condition_TP ? pos1_sell_TP : na, color = color2, char = char2, size = size1, location = location.absolute)
+
+
+
+
+//----------------------------------------------------------------------------------------------
+
+// textColor = input.color(color.white, title="Text Color")
+// labelOffset = input.int(100, title="Label Offset", minval=1)
+
+// atr_rounded = math.round(atr*100)
+// atr_TP_rounded = math.round(atr_mult_TP*atr*100)
+// atr_SL_rounded = math.round(atr_mult_SL*atr*100)
+
+// // Display ATR values when a cross occurs
+// if (buy_condition)
+//     label.new(x=bar_index, y=pos1_buy - labelOffset * syminfo.mintick, text="ATR: " + str.tostring(atr_rounded) + "\nSL: " + str.tostring(atr_SL_rounded) + "\nTP: " + str.tostring(atr_TP_rounded), color=color.rgb(80, 0, 0), textcolor=textColor, style=label.style_label_up, size=size.auto)
+// if (sell_condition)
+//     label.new(x=bar_index, y=pos1_sell + labelOffset * syminfo.mintick, text="ATR: " + str.tostring(atr_rounded) + "\nSL: " + str.tostring(atr_SL_rounded) + "\nTP: " + str.tostring(atr_TP_rounded), color=color.rgb(80, 0, 0), textcolor=textColor, style=label.style_label_down, size=size.auto)
+
+
+
+
+
+
+
+

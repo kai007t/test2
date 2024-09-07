@@ -1,0 +1,239 @@
+//Indicator - Oscillator of Moving Averages.
+//Histogram of difference between MACD (oscillator) and its MA (signal line)//
+//Version 2.0 Created on 14 July 2016 by - Shailesh Saxena
+//code based on MACD 4C indicator code published by vkno422/////
+//----------------------------55
+//@version=5
+
+indicator(shorttitle = "MMT", title = "MMT")
+
+import loxx/loxxmas/1
+
+GetPipSize() =>
+    syminfo.mintick * (syminfo.prefix == "forex" ? 10 : 1)
+
+calcBaseUnit() =>
+    bool  isForexSymbol = syminfo.type     == "forex"
+    bool  isYenPair     = syminfo.currency == "JPY"
+    float result = isForexSymbol ? isYenPair ? 0.01 : 0.0001 : syminfo.mintick
+
+
+
+src = input.source(close, "Source")
+//User Inputs
+fastMA = input.int(title="Fast MA Period", defval = 192, minval = 3)
+slowMA = input.int(title="Slow MA Period", defval = 30720, minval = 3)
+signal = input.int(title="MACD MA Period", defval = 96, minval = 3)
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+fastLength3 = input.int(title="Fast MA Period", defval = 24, minval = 3)
+slowLength3 = input.int(title="Slow MA Period", defval = 72, minval = 3)
+signalLength3 = input.int(title="MACD MA Period", defval = 9, minval = 3)
+length3 = input.int(title="MACD Shift", defval = 9, minval = 3)
+dev3 = input.float(1.2, minval=0.0001, title="Deviation1")
+
+//20288
+fastLength4 = input.int(7, minval=1)
+slowLength4 = input.int(8,minval=1)
+length4 = input.int(9, minval=1, title="BB Periods")
+
+
+if (timeframe.period == "5")
+    shift := 12  
+
+    fastLength4 := 20
+    slowLength4 := 288
+    length4 := 12
+
+if (timeframe.period == "15")
+    shift := 4
+
+    fastLength3 := 7
+    slowLength3 := 48
+    length3 := 4
+
+if (timeframe.period == "30")
+    shift := 2
+
+    fastLength4 := 4
+    slowLength4 := 48
+    length4 := 2
+
+if (timeframe.period == "60")
+    shift := 1
+
+//-------------------------------------------------------------------------------------------------------------
+
+
+//-------------------------------------------------------------------------------------------    
+//MACD 20288
+
+
+//20288
+dev4 = input.float(1.2, minval=0.0001, title="Deviation1")
+
+
+fastMA4 = ta.ema(close, fastLength4)
+slowMA4 = ta.ema(close, slowLength4)
+macd4 = (fastMA4 - slowMA4)/(GetPipSize()*100)
+
+Std4 = ta.stdev(macd4, length4)
+basis4 = ta.sma(macd4,length4)
+
+//BollingerBands1
+Upper4 = (Std4 * dev4 + (ta.sma(macd4, length4)))
+Lower4 = ((ta.sma(macd4, length4)) - (Std4 * dev4))
+
+mc4 = macd4 > Upper4 ? #02ff0c: macd4 < Lower4 ? #ff0000 : #5d5d60 
+
+circleYPositionBuy4 = -0.025
+circleYPositionSell4 = 0.025
+lineWidth4=2
+
+// plot((macd4>0.05) and (macd4<0.1) and (macd4>basis4) ? circleYPositionBuy4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(255, 0, 0, 20))
+// plot((macd4<-0.05) and (macd4>-0.1) and (macd4<basis4) ? circleYPositionSell4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(255, 0, 0, 20))
+
+// plot((macd4>0.101) and (macd4<0.15) and (macd4>basis4) ? circleYPositionBuy4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(255, 247, 0, 0))
+// plot((macd4<-0.101) and (macd4>-0.15) and (macd4<basis4) ? circleYPositionSell4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(255, 247, 0, 0))
+
+// plot((macd4>0.151) and (macd4<0.2) and (macd4>basis4) ? circleYPositionBuy4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(0, 123, 255))
+// plot((macd4<-0.151) and (macd4>-0.2) and (macd4<basis4) ? circleYPositionSell4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(0, 123, 255))
+
+// plot((macd4>0.201) and (macd4<0.25) and (macd4>basis4) ? circleYPositionBuy4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(143, 0, 255))
+// plot((macd4<-0.201) and (macd4>-0.25) and (macd4<basis4) ? circleYPositionSell4 : na, title="Cross", style=plot.style_circles, linewidth=lineWidth4, color=color.rgb(143, 0, 255))
+
+
+//-------------------------------------------------------------------------------------------    
+
+macdtype = input.string("Double Smoothed Exponential Moving Average - DSEMA", "MACD MA Type")
+
+
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="60")
+res = useCurrentRes ? timeframe.period : resCustom
+
+
+variant(type, src, len) =>
+    sig = 0.0
+    trig = 0.0
+    special = false
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t, s, b] = loxxmas.dsema(src, len)
+        sig := s
+        trig := t
+        special := b
+    
+    else if type == "Super Smoother"
+        [t, s, b] = loxxmas.super(src, len)
+        sig := s
+        trig := t
+        special := b
+    trig
+
+f_bb(src, length, mult, type) =>
+    float basis = variant(type, src, length)
+    float dev = mult * ta.stdev(src, length)
+    [basis, basis + dev, basis - dev]
+
+
+
+
+fastMA1 = ta.ema(close, fastMA)
+
+//MACD
+macd = fastMA1 - variant(macdtype, src, slowMA) 
+signal2 = variant(macdtype, macd, signal)
+//hist = (macd - signal2)
+
+//OsMA
+OSMA =  (macd - signal2) / (GetPipSize() * 1000)
+outOSMA = request.security(syminfo.tickerid, res, OSMA, lookahead=barmerge.lookahead_on)
+
+
+//
+dev = input.float(1.5, minval=0.0001, title="Deviations")
+Std = ta.stdev(outOSMA, signal)
+Upper = (Std * dev + (ta.sma(outOSMA, signal)))
+Lower = ((ta.sma(outOSMA, signal)) - (Std * dev))
+
+outUpper = request.security(syminfo.tickerid, res, Upper, lookahead=barmerge.lookahead_on)
+outLower = request.security(syminfo.tickerid, res, Lower, lookahead=barmerge.lookahead_on)
+
+
+
+//
+
+// Plot colors
+col_grow_above = #8e7bff
+col_grow_below = #8B4513
+col_fall_above = #483d8b
+col_fall_below = #DAA520
+col_macd = #0094ff
+col_signal = #ff6a00
+
+upper0 = 0.015
+lower0 = -0.015
+upper11 = 0.01
+lower11 = -0.01
+upper12 = 0.05
+lower12 = -0.05
+
+// hline(0.005, color=#ffffff)
+// hline(-0.005, color=#ffffff)
+
+
+//plot(OsMA, style = histogram, color = OsMAColor, linewidth = 2)
+plot(outOSMA, title="Histogram", style=plot.style_columns, color=(outOSMA>=0 ? (outOSMA[shift] < outOSMA ? col_grow_above : col_fall_above) : (outOSMA[shift] < outOSMA ? col_grow_below : col_fall_below) ), transp=30, linewidth = 4 )
+
+//z Band1 = plot(outUpper, color=color.rgb(255, 0, 0), style=plot.style_line, linewidth=2,title="Upper Band")
+// Band2 = plot(outLower, color=color.rgb(255, 0, 0), style=plot.style_line, linewidth=2,title="lower Band")
+
+circleYPositionBuy = -0.025
+circleYPositionSell = 0.025
+lineWidth=1
+
+plot((outOSMA>0.005) and (outOSMA<0.015) and (outOSMA>outOSMA[shift]) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 0, 0, 20))
+plot((outOSMA<-0.005) and (outOSMA>-0.015) and (outOSMA<outOSMA[shift]) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 0, 0, 20))
+
+plot((outOSMA>0.015) and (outOSMA<0.03) and (outOSMA>outOSMA[shift]) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 247, 0, 0))
+plot((outOSMA<-0.015) and (outOSMA>-0.03) and (outOSMA<outOSMA[shift]) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(255, 247, 0, 0))
+
+plot((outOSMA>0.03) and (outOSMA>outOSMA[shift]) ? circleYPositionBuy : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(0, 123, 255))
+plot((outOSMA<-0.03) and (outOSMA<outOSMA[shift]) ? circleYPositionSell : na, title="Cross", style=plot.style_circles, linewidth=lineWidth, color=color.rgb(0, 123, 255))
+
+
+linewidthh = 1
+colorh1 = color.rgb(255, 187, 0, 40)
+colorh12 = color.rgb(193, 193, 193, 40)
+
+l1 = hline(0.009, color=colorh1, linewidth=linewidthh, linestyle = hline.style_solid) 
+l2 = hline(-0.009, color=colorh1, linewidth=linewidthh, linestyle = hline.style_solid)
+l3 = hline(0.03, color=colorh12, linewidth=linewidthh, linestyle = hline.style_solid)
+l4 = hline(-0.03, color=colorh12, linewidth=linewidthh, linestyle = hline.style_solid)
+
+
+circleYPositionROC = 0
+
+OSMA_ROC = outOSMA - outOSMA[shift]
+
+plot(outOSMA > 0 and OSMA_ROC > 0.0015  ? circleYPositionROC : na, title="Cross", style=plot.style_circles, linewidth=2, color=color.rgb(209, 212, 220))
+plot(outOSMA < 0 and OSMA_ROC < -0.0015 ? circleYPositionROC : na, title="Cross", style=plot.style_circles, linewidth=2, color=color.rgb(209, 212, 220))
+
+
+mmt_buy  = outOSMA > outOSMA[shift] and outOSMA >  0.009 and outOSMA <  0.035
+mmt_sell = outOSMA < outOSMA[shift] and outOSMA < -0.009 and outOSMA >  -0.035
+
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//Plot---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+bgcolor(mmt_buy ? color.green : mmt_sell ? color.red : na, transp = 50)
+
+// fill(l1,l3, color=color.rgb(43, 255, 0, 80))
+// fill(l2,l4, color=color.rgb(43, 255, 0, 80))
+//-------------------------------------------------------------------------------------------    
+
+
+

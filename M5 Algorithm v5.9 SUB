@@ -1,0 +1,467 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/use//
+// © kai0072//
+
+//@version=5
+indicator("M5 Algorithm v5.9 sub", overlay=false)///////////
+
+//Highlight Monday-----------------------------------------------------------------------------------------------------------------------
+earlyhour = 2
+latehour = 24
+enSun = input(true, title="Highlight Sunday.?")
+isSun() => dayofweek(time('D')) == dayofweek.sunday and close ? 1 : 0
+bgcolor(enSun and isSun() ? (isSun() ? color.new(#0084ff, 85) : na) : na)
+
+//Get pip size---------------------------------------------------------------------------------------------------------------------------
+
+// GetPipSize() returns the instrument's pip size. Returns the 
+// tick size for non-forex instruments, and the pip size (based 
+// on whole pips) for forex currency pairs.
+GetPipSize() =>
+    syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
+    //syminfo.mintick * (syminfo.type == "cfd" ? 100 : 1)
+    //syminfo.mintick * (syminfo.type == "futures" ? 2.5 : 1)
+
+//====================================================================
+//Enter ATR Inputs
+atrLength =48
+
+//ATR Function
+ma_function(source, atrLength) => ta.rma(source, atrLength)
+	
+truncate(number, decimals) =>
+    factor = math.pow(24, decimals)
+    int(number * factor) / factor
+    
+atr = truncate(ma_function(ta.tr(true), atrLength),5)
+
+
+//Candle count
+Bars_Since = input.int(48, title="Bars Since")//
+pips = input.int(3, title="Pip Bands")
+
+//TIME-----------------------------------------------------------------------------------------------------------------------
+// Define the start and end hours in AST
+highlightStartHour = 19
+highlightEndHour = 12
+
+// Calculate the current hour in AST
+currentHour = hour(time - timestamp("GMT-4"))
+
+// Check if the current hour is within the specified range
+inHighlightRange = currentHour >= highlightStartHour or currentHour < highlightEndHour
+
+// Plot a colored background for the specified time range
+//bgcolor(inHighlightRange ? color.new(#2195f3, 66) : na)
+
+//-----------------------------------------------------------------------------------------------------------------------
+
+//C1---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//EMA 20
+EMA20_len = input.int(18, minval=1, title="Length")
+EMA20_src = close
+EMA20_out = ta.ema(EMA20_src, EMA20_len)
+
+//ATR Bands
+EMAA144Band1 = EMA20_out+1.0*atr
+EMAA144Band2 = EMA20_out-1.0*atr
+
+//EMA 144
+EMA144_len = input.int(144, minval=1, title="Length")
+EMA144_src = close
+EMA144_out = ta.ema(EMA144_src, EMA144_len)
+
+//EMA 288
+EMA288_len = input.int(288, minval=1, title="Length")
+EMA288_src = close
+EMA288_out = ta.ema(EMA288_src, EMA288_len)
+
+
+//EMA 576
+EMA576_len = input.int(576, minval=1, title="Length")
+EMA576_src = close
+EMA576_out = ta.ema(EMA576_src, EMA576_len)
+
+
+pipOffset = pips * GetPipSize()
+upperBand = EMA20_out + pipOffset
+lowerBand = EMA20_out - pipOffset
+
+
+
+
+EMA_Long1  = EMA20_out > EMA144_out and close > EMA576_out and EMA20_out > EMA576_out
+EMA_Short1 = EMA20_out < EMA144_out and close < EMA576_out and EMA20_out < EMA576_out
+
+
+
+//MACD 20144---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+fastLength1 = input.int(20, minval=1)
+slowLength1 = input.int(144,minval=1)
+length1 = input.int(12, minval=1, title="BB Periods")
+dev1 = input.float(1.2, minval=0.0001, title="Deviation1")
+
+fastMA1 = ta.ema(close, fastLength1)
+slowMA1 = ta.ema(close, slowLength1)
+macd1 = (fastMA1 - slowMA1)/(GetPipSize()*100)
+
+Std1 = ta.stdev(macd1, length1)
+basis1 = ta.sma(macd1,length1)
+
+//BollingerBands1
+Upper1 = (Std1 * dev1 + (ta.sma(macd1, length1)))
+Lower1 = ((ta.sma(macd1, length1)) - (Std1 * dev1))
+
+BBMacdL1 = macd1>0.05 and macd1<0.1 and macd1>basis1
+BBMacdS1 = macd1<-0.05 and macd1>-0.1 and macd1<basis1
+
+BBMacdL2 = macd1>0.101 and macd1<0.15 and macd1>basis1
+BBMacdS2 = macd1<-0.101 and macd1>-0.15 and macd1<basis1
+
+BBMacdL3 = macd1>0.151 and macd1<0.20 and macd1>basis1
+BBMacdS3 = macd1<-0.151 and macd1>-0.20 and macd1<basis1
+
+BBMacdL4 = macd1>0.201 and macd1<0.25 and macd1>basis1
+BBMacdS4 = macd1<-0.201 and macd1>-0.25 and macd1<basis1
+
+//---------------------------------
+macd1_buy  = macd1 > 0.08  and macd1 < 0.25  and macd1 > basis1
+macd1_sell = macd1 < -0.08 and macd1 > -0.25 and macd1 < basis1
+
+//-----------------------------------------------------------------------------------------------
+
+
+//MACD 20288---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+fastLength2 = input.int(20, minval=1)
+slowLength2 = input.int(288,minval=1)
+length2 = input.int(12, minval=1, title="BB Periods")
+dev2 = input.float(1.2, minval=0.0001, title="Deviation1")
+
+fastMA2 = ta.ema(close, fastLength2)
+slowMA2 = ta.ema(close, slowLength2)
+macd2 = (fastMA2 - slowMA2)/(GetPipSize()*100)
+
+Std2 = ta.stdev(macd2, length2)
+basis2 = ta.sma(macd2,length2)
+
+//BollingerBands2
+Upper2 = (Std2 * dev2 + (ta.sma(macd2, length2)))
+Lower2 = ((ta.sma(macd2, length2)) - (Std2 * dev2))
+
+BBMacdL1_2 = macd2>0.05 and macd2<0.08 and macd2>basis2
+BBMacdS1_2 = macd2<-0.05 and macd2>-0.08 and macd2<basis2
+
+BBMacdL2_2 = macd2>0.0801 and macd2<0.1 and macd2>basis2
+BBMacdS2_2 = macd2<-0.0801 and macd2>-0.1 and macd2<basis2
+
+BBMacdL3_2 = macd2>0.101 and macd2<0.15 and macd2>basis2
+BBMacdS3_2 = macd2<-0.101 and macd2>-0.15 and macd2<basis2
+
+BBMacdL4_2 = macd2>0.151 and macd2<0.2 and macd2>basis2
+BBMacdS4_2 = macd2<-0.151 and macd2>-0.2 and macd2<basis2
+
+BBMacdL5_2 = macd2>0.201 and macd2<0.25 and macd2>basis2
+BBMacdS5_2 = macd2<-0.201 and macd2>-0.25 and macd2<basis2
+
+//---------------------------------
+macd2_buy  = macd2 > 0.07  and macd2 < 0.25  and macd2 > basis2
+macd2_sell = macd2 < -0.07 and macd2 > -0.25 and macd2 < basis2
+
+
+//-----------------------------------------------------------------------------------------------
+
+
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//OSMA MTF H4
+
+//User Inputs
+fastMAH4 = input.int(title="Fast MA Period", defval = 96, minval = 3)
+slowMAH4 = input.int(title="Slow MA Period", defval = 3840, minval = 3)
+signalH4 = input.int(title="MACD MA Period", defval = 16, minval = 3)
+
+macdtypeH4 = input.string("Double Smoothed Exponential Moving Average - DSEMA", "MACD MA Type")
+
+import loxx/loxxmas/1
+src = input.source(close, "Source")
+
+
+useCurrentResH4 = input(false, title="Use Current Chart Resolution?")
+resCustomH4 = input(title="Use Different Timeframe? Uncheck Box Above", defval="60")
+resH4 = useCurrentResH4 ? timeframe.period : resCustomH4
+
+
+variant(type, src, len) =>
+    sig = 0.0
+    trig = 0.0
+    special = false
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t, s, b] = loxxmas.dsema(src, len)
+        sig := s
+        trig := t
+        special := b
+    
+    else if type == "Super Smoother"
+        [t, s, b] = loxxmas.super(src, len)
+        sig := s
+        trig := t
+        special := b
+    trig
+
+
+//MACD
+macdH4 = variant(macdtypeH4, src, fastMAH4) - variant(macdtypeH4, src, slowMAH4) 
+signal22 = variant(macdtypeH4, macdH4, signalH4)
+//hist = (macd - signal2)
+
+//OsMA
+OSMAH4 =  (macdH4 - signal22) / (GetPipSize()*100)
+outOSMAH4 = request.security(syminfo.tickerid, resH4, OSMAH4, lookahead=barmerge.lookahead_on)
+
+outOSMAH4_buy = outOSMAH4 > outOSMAH4[12] and outOSMAH4 > 0.015
+outOSMAH4_sell = outOSMAH4 < outOSMAH4[12] and outOSMAH4 < -0.015
+//------------------------------------------------------------------------------------------------
+
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//MMT
+
+
+//User Inputs
+mmtfastMA = input.int(title="Fast MA Period", defval = 192, minval = 3)
+mmtslowMA = input.int(title="Slow MA Period", defval = 30720, minval = 3)
+mmtsignal = input.int(title="MACD MA Period", defval = 96, minval = 3)
+mmtshift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+mmtmacdtype = input.string("Double Smoothed Exponential Moving Average - DSEMA", "MACD MA Type")
+
+mmtuseCurrentRes = input(false, title="Use Current Chart Resolution?")
+mmtresCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="60")
+mmtres = mmtuseCurrentRes ? timeframe.period : mmtresCustom
+
+
+mmtvariant(type, src, mmtlen) =>
+    sig = 0.0
+    trig = 0.0
+    special = false
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t, s, b] = loxxmas.dsema(src, mmtlen)
+        sig := s
+        trig := t
+        special := b
+    
+    else if type == "Super Smoother"
+        [t, s, b] = loxxmas.super(src, mmtlen)
+        sig := s
+        trig := t
+        special := b
+    trig
+
+mmtf_bb(src, mmtlength, mult, type) =>
+    float basis = variant(type, src, mmtlength)
+    float dev = mult * ta.stdev(src, mmtlength)
+    [basis, basis + dev, basis - dev]
+
+
+
+
+mmtfastMA1 = ta.ema(close, mmtfastMA)
+
+//MACD
+mmtmacd = mmtfastMA1 - variant(mmtmacdtype, src, mmtslowMA) 
+mmtsignal2 = variant(mmtmacdtype, mmtmacd, mmtsignal)
+//hist = (macd - signal2)
+
+//OsMA
+mmtOSMA =  (mmtmacd - mmtsignal2) / (GetPipSize() * 100)
+mmtoutOSMA = request.security(syminfo.tickerid, mmtres, mmtOSMA, lookahead=barmerge.lookahead_on)
+
+mmt_buy  = mmtoutOSMA > mmtoutOSMA[12] and mmtoutOSMA >  0.009
+mmt_sell = mmtoutOSMA < mmtoutOSMA[12] and mmtoutOSMA < -0.009
+
+mmt_buy1  = mmtoutOSMA > mmtoutOSMA[12] and mmtoutOSMA >  0.009 and mmtoutOSMA <  0.03
+mmt_sell1 = mmtoutOSMA < mmtoutOSMA[12] and mmtoutOSMA < -0.009 and mmtoutOSMA >  -0.03
+
+// bgcolor(mmt_buy ? color.green : mmt_sell ? color.red : na, transp = 85)
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//MACD MTF H4//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+src4 = input.source(close, "Source")
+//User Inputs
+fastLength4 = input.int(title="Fast MA Period", defval = 8, minval = 3)
+slowLength4 = input.int(title="Slow MA Period", defval = 26, minval = 3)
+length4 = input.int(title="MACD MA Period", defval = 6, minval = 3)
+dev4 = input.float(1, minval=0.0001, title="Deviations")
+
+useCurrentRes4 = input(false, title="Use Current Chart Resolution?")
+resCustom4 = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+res4 = useCurrentRes4 ? timeframe.period : resCustom4
+
+
+fastMA4 = ta.ema(close, fastLength4)
+slowMA4 = ta.ema(close, slowLength4)
+macd4 = (fastMA4 - slowMA4)/(GetPipSize()*100)
+outMACD4 = request.security(syminfo.tickerid, res4, macd4, lookahead=barmerge.lookahead_on)
+
+Std4 = ta.stdev(macd4, length4)
+basis4 = ta.sma(macd4,length4)
+
+Upper4 = (Std4 * dev4 + (ta.sma(macd4, length4)))
+Lower4 = ((ta.sma(macd4, length4)) - (Std4 * dev4))
+outUpper4 = request.security(syminfo.tickerid, res4, Upper4, lookahead=barmerge.lookahead_on)
+outLower4 = request.security(syminfo.tickerid, res4, Lower4, lookahead=barmerge.lookahead_on)
+outBasis4 = request.security(syminfo.tickerid, res4, basis4, lookahead=barmerge.lookahead_on)
+
+macd_buy4 = outMACD4 > outUpper4 and outMACD4 > -1
+macd_sell4 = outMACD4 < outLower4 and outMACD4 < 1
+
+////--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//MACD MTF D720//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+src5 = input.source(close, "Source")
+//User Inputs
+fastLength5 = input.int(title="Fast MA Period", defval = 6, minval = 3)
+slowLength5 = input.int(title="Slow MA Period", defval = 160, minval = 3)
+length5 = input.int(title="MACD MA Period", defval = 5, minval = 3)
+dev5 = input.float(1, minval=0.0001, title="Deviations")
+
+useCurrentRes6 = input(false, title="Use Current Chart Resolution?")
+resCustom6 = input(title="Use Different Timeframe? Uncheck Box Above", defval="720")
+res6 = useCurrentRes6 ? timeframe.period : resCustom6
+
+
+fastMA5 = ta.ema(close, fastLength5)
+slowMA5 = ta.ema(close, slowLength5)
+macd5 = (fastMA5 - slowMA5)/(GetPipSize()*100)
+outMACD5 = request.security(syminfo.tickerid, res6, macd5, lookahead=barmerge.lookahead_on)
+
+Std5 = ta.stdev(macd5, length5)
+basis5 = ta.sma(macd5,length5)
+
+Upper5 = (Std5 * dev5 + (ta.sma(macd5, length5)))
+Lower5 = ((ta.sma(macd5, length5)) - (Std5 * dev5))
+outUpper5 = request.security(syminfo.tickerid, res6, Upper5, lookahead=barmerge.lookahead_on)
+outLower5 = request.security(syminfo.tickerid, res6, Lower5, lookahead=barmerge.lookahead_on)
+outBasis5 = request.security(syminfo.tickerid, res6, basis5, lookahead=barmerge.lookahead_on)
+
+macd_buy5  = outMACD5 > outUpper5 //and outMACD5 > -1
+macd_sell5 = outMACD5 < outLower5 //and outMACD5 < 1
+
+
+
+////--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+//Plot----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+color1 = color.rgb(255, 0, 0, 0)
+color2 = color.rgb(255, 255, 0, 0)
+color3 = color.rgb(0, 123, 255)
+
+size = size.tiny
+
+pos2_buy  = -0.005
+pos2_sell = 0.005
+char2 = 'o'
+
+
+pos3_buy  = -0.001
+pos3_sell = 0.001
+char3 = '⦁'
+
+char4 = '⦁'
+color4 = color.rgb(255, 0, 255)
+
+
+//OSMA  H4 D1  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//          20144         20288                         963840              826           6160
+RangeL1 = BBMacdL1 and macd2_buy  and EMA_Long1  and outOSMAH4_buy  and macd_buy4  and macd_buy5  
+RangeS1 = BBMacdS1 and macd2_sell and EMA_Short1 and outOSMAH4_sell and macd_sell4 and macd_sell5
+
+RangeL2 = BBMacdL2 and macd2_buy  and EMA_Long1  and outOSMAH4_buy  and macd_buy4  and macd_buy5 
+RangeS2 = BBMacdS2 and macd2_sell and EMA_Short1 and outOSMAH4_sell and macd_sell4 and macd_sell5 
+
+RangeL3 = BBMacdL3 and macd2_buy  and EMA_Long1  and outOSMAH4_buy  and macd_buy4  and macd_buy5  
+RangeS3 = BBMacdS3 and macd2_sell and EMA_Short1 and outOSMAH4_sell and macd_sell4 and macd_sell5 
+
+
+plotchar(RangeL2 ? pos2_buy : na,  color = color2, char = char2, size = size, location = location.absolute)
+plotchar(RangeS2 ? pos2_sell : na, color = color2, char = char2, size = size, location = location.absolute)
+
+plotchar(RangeL3 ? pos2_buy : na,  color = color3, char = char2, size = size, location = location.absolute)
+plotchar(RangeS3 ? pos2_sell : na, color = color3, char = char2, size = size, location = location.absolute)
+
+
+if RangeL2
+    alert("Range2 + OSMA + H4 + D Buy", alert.freq_once_per_bar_close)
+
+if RangeS2
+    alert("Range2 + OSMA + H4 + D Sell", alert.freq_once_per_bar_close)
+
+if RangeL3
+    alert("Range3 + OSMA + H4 + D Buy", alert.freq_once_per_bar_close)
+
+if RangeS3
+    alert("Range3 + OSMA + H4 + D Sell", alert.freq_once_per_bar_close)
+
+
+//MMT + H4----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// RangeL1 = BBMacdL1 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4
+// RangeS1 = BBMacdS1 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4
+
+// RangeL2 = BBMacdL2 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4
+// RangeS2 = BBMacdS2 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4
+
+// RangeL3 = BBMacdL3 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4
+// RangeS3 = BBMacdS3 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4
+
+
+//MMT H4 D----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//             20144      20288                                        826            6160
+RangeL1_2 = BBMacdL1 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4  and macd_buy5
+RangeS1_2 = BBMacdS1 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4 and macd_sell5
+
+RangeL2_2 = BBMacdL2 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4  and macd_buy5
+RangeS2_2 = BBMacdS2 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4 and macd_sell5
+
+RangeL3_2 = BBMacdL3 and macd2_buy  and EMA_Long1  and mmt_buy  and macd_buy4  and macd_buy5
+RangeS3_2 = BBMacdS3 and macd2_sell and EMA_Short1 and mmt_sell and macd_sell4 and macd_sell5
+
+
+plotchar(RangeL2_2 ? pos3_buy : na,  color = color2, char = char4, size = size, location = location.absolute)
+plotchar(RangeS2_2 ? pos3_sell : na, color = color2, char = char4, size = size, location = location.absolute)
+
+plotchar(RangeL3_2 ? pos3_buy : na,  color = color3, char = char4, size = size, location = location.absolute)
+plotchar(RangeS3_2 ? pos3_sell : na, color = color3, char = char4, size = size, location = location.absolute)
+
+
+if RangeL2_2
+    alert("Range2 + MMT + H4 + D Buy", alert.freq_once_per_bar_close)
+
+if RangeS2_2
+    alert("Range2 + MMT + H4 + D Sell", alert.freq_once_per_bar_close)
+
+if RangeL3_2
+    alert("Range3 + MMT + H4 + D Buy", alert.freq_once_per_bar_close)
+
+if RangeS3_2
+    alert("Range3 + MMT + H4 + D Sell", alert.freq_once_per_bar_close)
+
+
+//------------------------------------------------------------------------------------------------------------------------
+
+hline(0, color=color.rgb(164, 163, 163, 30), linestyle=hline.style_dotted, linewidth=2)
+

@@ -1,0 +1,144 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © loxx
+//
+//@version=5
+
+indicator("D1 Chart", 
+     shorttitle = "D1 Chart", 
+     overlay = true, 
+     timeframe="", 
+     timeframe_gaps = true,
+     max_bars_back = 2000)
+
+greencolor = #2DD204
+redcolor = #D2042D 
+
+offset1 = input.int(10, minval=1)
+
+
+
+if (timeframe.period == "D")
+    offset1 := 1
+
+if (timeframe.period == "5")
+    offset1 := 288
+
+if (timeframe.period == "15")
+    offset1 := 96
+
+if (timeframe.period == "30")
+    offset1 := 48
+
+if (timeframe.period == "60")
+    offset1 := 24
+
+if (timeframe.period == "120")
+    offset1 := 12
+
+if (timeframe.period == "240")
+    offset1 := 10
+
+if (timeframe.period == "720")
+    offset1 := 2
+
+    
+//Double Smoothed Exponential Moving Average - DSEMA
+_dsema(src, len)=>
+    alpha = 2.0 / (1.0 + math.sqrt(len))
+    _ema1 = 0., _ema2 = 0.
+    _ema1 := nz(_ema1[1]) + alpha * (src - nz(_ema1[1]))
+    _ema2 := nz(_ema2[1]) + alpha * (_ema1 - nz(_ema2[1]))
+    [_ema2, _ema2[1], false]
+
+
+
+srcoption = input.string("Close", "SMA Source Options", group= "Basic Settings", 
+     options = ["Close"])
+
+
+len = input.int(240, "Period", minval = 1, group = "Basic Settings")
+type = input.string("Double Smoothed Exponential Moving Average - DSEMA", options = ["Double Smoothed Exponential Moving Average - DSEMA"], group = "Basic Settings")
+rclose = close 
+
+
+float src = switch srcoption
+	"Close" => rclose
+
+
+variant(type, src, len) =>
+    sig = 0.0
+    trig = 0.0
+    special = false
+ 
+    if type == "Double Smoothed Exponential Moving Average - DSEMA"
+        [t, s, b] = _dsema(src, len)
+        sig := s
+        trig := t
+        special := b
+    
+    [trig, sig, special]
+
+[trig, sig, special] = variant(type, src, len)
+
+//plot(trig, "Moving Average", color = trig > sig ? greencolor : redcolor, linewidth = 1)
+
+
+//-----------------------------------------------------------------------------------
+
+// Define input for higher timeframe
+tf_input = input.string(title="Higher Timeframe",  defval="D", options=["60", "D", "W", "240"])
+
+// Calculate high and low conditions
+highCondition = high[1] > high[0] and high[1] > high[2]
+lowCondition = low[1] < low[0] and low[1] < low[2]
+
+// Set plot colors and styles
+highColor = color.green
+lowColor = color.red
+lineStyle = line.style_solid
+lineWidth = 2
+
+// Calculate highest and lowest points on higher timeframe
+highestPoint = request.security(syminfo.tickerid, tf_input, high[1] == ta.highest(high, 3) ? high[1] : na)
+lowestPoint = request.security(syminfo.tickerid, tf_input, low[1] == ta.lowest(low, 3) ? low[1] : na)
+
+
+// Plot highest and lowest points
+plot(highestPoint, "Highest Point", color=color.rgb(255, 0, 0), linewidth=lineWidth, style = plot.style_cross, offset = -offset1)
+plot(lowestPoint, "Lowest Point",   color=color.rgb(0, 255, 30),  linewidth=lineWidth, style = plot.style_cross, offset = -offset1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

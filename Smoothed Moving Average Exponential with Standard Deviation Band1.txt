@@ -1,0 +1,102 @@
+//@version=5
+indicator(title='Smoothed Moving Average Exponential with Standard Deviation Band ', shorttitle='Smoothed Moving Average Exponential with Standard Deviation Band  ', overlay=false)///
+
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+len = input.int(20, minval=1, maxval = 60,title='Length')
+IC_factor = input.float(1.4, minval=1, maxval = 2, title='Inner Channel Stdev Factor')
+smoothing = input.int(title="Smoothing", defval = 2, minval = 1)
+price = request.security(syminfo.tickerid, "720", close)
+
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="480")
+res = useCurrentRes ? timeframe.period : resCustom
+
+
+
+
+if (timeframe.period == "5")
+    shift := 192
+
+if (timeframe.period == "10")
+    shift := 96
+
+if (timeframe.period == "15")
+    shift := 64
+
+if (timeframe.period == "30")
+    shift := 32
+
+if (timeframe.period == "60")
+    shift := 16
+
+if (timeframe.period == "240")
+    shift := 4
+
+if (timeframe.period == "480")
+    shift := 2
+
+if (timeframe.period == "720")
+    shift := 1
+
+
+
+
+//ss_ema = input.bool(true,"Switch SS or EMA")
+
+
+src = input(close, title='Source')
+offset = input.int(title='Offset', defval=0, minval=-500, maxval=500)
+out = ta.ema(src, len)
+//plot(out, title='EMA', color=color.rgb(255, 255, 0), offset=offset)
+
+IUC = out + IC_factor * ta.stdev(out, len)
+IDC = out - IC_factor * ta.stdev(out, len)
+
+IUC_out = request.security(syminfo.tickerid, res, IUC, lookahead=barmerge.lookahead_on)
+IDC_out = request.security(syminfo.tickerid, res, IDC, lookahead=barmerge.lookahead_on)
+
+IUC_smoothed = ta.ema(IUC_out,smoothing)
+IDC_smoothed = ta.ema(IDC_out,smoothing)
+
+// plot(IUC_out, title='IUC', color=#b7b7b7, offset=offset)
+// plot(IDC_out, title='IDC', color=#b7b7b7, offset=offset)
+
+plot(IUC_smoothed, title='IUC', color=#b7b7b7, offset=offset)
+plot(IDC_smoothed, title='IDC', color=#b7b7b7, offset=offset)
+
+
+// Get the close price
+//price = close
+
+price_out = request.security(syminfo.tickerid, res, price, lookahead=barmerge.lookahead_on)
+
+
+// Plot the price line
+plot(price_out, title="Price Line", color=color.rgb(255, 0, 255), linewidth=2)
+
+
+
+// crossup2 = (price_out > IUC_out)
+// crossdown2 = (price_out < IDC_out)
+
+crossup2 = (price_out > IUC_smoothed) and (price_out[0] > price_out[shift] )
+crossdown2 = (price_out < IDC_smoothed) and (price_out[0] < price_out[shift])
+
+crossup3 = ta.crossover(price_out, IUC_smoothed)
+crossdown3 = ta.crossunder(price_out, IDC_smoothed)
+
+crossup4 = ta.crossunder(price_out, IUC_smoothed)
+crossdown4 = ta.crossover(price_out, IDC_smoothed)
+
+
+bgcolor(crossup2 ? #1848cc : crossdown2 ? #801922 : na)
+
+
+
+plot(crossup3 ? IUC : na, title="Zero Line", color=#02ff0c, style=plot.style_circles, linewidth=3, transp=0)
+plot(crossdown3 ? IDC : na, title="Zero Line", color=#ff0000, style=plot.style_circles, linewidth=3, transp=0)
+
+plot(crossup4 ? IUC : na, title="Zero Line", color=#ffe500, style=plot.style_circles, linewidth=3, transp=0)
+plot(crossdown4 ? IDC : na, title="Zero Line", color=#ffe500, style=plot.style_circles, linewidth=3, transp=0)
+
+

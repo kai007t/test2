@@ -1,0 +1,117 @@
+//Indicator - Oscillator of Moving Averages.
+//Histogram of difference between MACD (oscillator) and its MA (signal line)
+//Version 2.0 Created on 14 July 2016 by - Shailesh Saxena
+//code based on MACD 4C indicator code published by vkno422/////
+//----------------------------55
+//@version=5
+
+indicator(shorttitle = "1. AK MACD BB v 1.00 - MTF 4", title = "1. AK MACD BB v 1.00 - MTF 4")///////////
+
+import loxx/loxxmas/1
+
+GetPipSize() =>
+    syminfo.mintick * (syminfo.prefix == "forex" ? 10 : 1)
+
+calcBaseUnit() =>
+    bool  isForexSymbol = syminfo.type     == "forex"
+    bool  isYenPair     = syminfo.currency == "JPY"
+    float result = isForexSymbol ? isYenPair ? 0.01 : 0.0001 : syminfo.mintick
+
+
+
+src = input.source(close, "Source")
+//User Inputs
+fastLength = input.int(title="Fast MA Period", defval = 8, minval = 3)
+slowLength = input.int(title="Slow MA Period", defval = 26, minval = 3)
+length = input.int(title="MACD MA Period", defval = 6, minval = 3)
+dev = input.float(1, minval=0.0001, title="Deviations")
+shift = input.int(title="MACD Shift", defval = 10, minval = 3)
+
+
+
+if (timeframe.period == "5")
+    shift := 12  
+
+if (timeframe.period == "15")
+    shift := 4
+
+if (timeframe.period == "30")
+    shift := 2
+
+if (timeframe.period == "60")
+    shift := 1
+
+//-------------------------------------------------------------------------------------------------------------
+
+
+
+
+//-------------------------------------------------------------------------------------------    
+
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", defval="240")
+res = useCurrentRes ? timeframe.period : resCustom
+
+
+//MACD
+fastMA = ta.ema(close, fastLength)
+slowMA = ta.ema(close, slowLength)
+macd = (fastMA - slowMA)/(GetPipSize()*100)
+outMACD = request.security(syminfo.tickerid, res, macd, lookahead=barmerge.lookahead_on)
+
+Std = ta.stdev(macd, length)
+basis = ta.sma(macd,length)
+
+//BollingerBands1
+Upper1 = (Std * dev + (ta.sma(macd, length)))
+Lower1 = ((ta.sma(macd, length)) - (Std * dev))
+outUpper1 = request.security(syminfo.tickerid, res, Upper1, lookahead=barmerge.lookahead_on)
+outLower1 = request.security(syminfo.tickerid, res, Lower1, lookahead=barmerge.lookahead_on)
+outBasis = request.security(syminfo.tickerid, res, basis, lookahead=barmerge.lookahead_on)
+
+mc = outMACD > outUpper1 ? #02ff0c: outMACD < outLower1 ? #ff0000 : #949494 
+
+plot(outMACD, color=mc, style =plot.style_line,linewidth = 2)
+
+macd_buy = outMACD > outUpper1 and outMACD > -1 
+macd_sell = outMACD < outLower1 and outMACD < 1 
+
+macd_buy_early = outMACD > outUpper1 and outMACD > -2 and outMACD < 0
+macd_sell_early = outMACD < outLower1 and outMACD < 2 and outMACD > 0
+
+bgcolor(macd_buy ? color.green : macd_sell ? color.red : na, transp = 50)
+//bgcolor(macd_buy_early ? color.rgb(246, 255, 82, 50) : macd_sell_early ? color.rgb(246, 255, 82, 50) : na, transp = 50)
+
+//plot(outBasis, style=plot.style_line, linewidth=2, color=#b2b5be)
+
+//hline(0, title="Zero Line", color=#696969, linestyle=hline.style_dashed, linewidth=1)
+factor = 100
+zero = 0
+upper1 = 0.1
+lower1 = -0.1
+//hline(0, color=#b2b5be)
+hline(1, color=#00bfff)
+hline(-1, color=#00bfff)
+// hline(5, color=#b2b5be)
+// hline(-5, color=#b2b5be)
+
+
+
+outTrend = (outMACD - outMACD[1]) / outMACD
+circleYPositionTrend = 0
+linewidth = 3
+
+plot(outTrend > 0.1 ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=mc)
+plot(outTrend < -0.1 ? outMACD : na, title="Cross", style=plot.style_circles, linewidth=linewidth, color=mc)
+
+// barcolor(macd_buy  ? color.yellow:na)
+// barcolor(macd_sell ? color.aqua:na)
+
+crossup = ta.crossover(outMACD, 0)
+crossdown = ta.crossunder(outMACD, 0)
+
+plot(crossup ? 0 : na, title="Zero Line", color=#ffffff, style=plot.style_circles, linewidth=4, transp=0)
+plot(crossdown ? 0 : na, title="Zero Line", color=#ffffff, style=plot.style_circles, linewidth=4, transp=0)//
+
+
+
